@@ -1,0 +1,22 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - '${REDIS_PORT:-16363}:6379'
+    volumes:
+      - redis_data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:-run-mishe}
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-run-mishe}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  redis_data:
+    driver: local
