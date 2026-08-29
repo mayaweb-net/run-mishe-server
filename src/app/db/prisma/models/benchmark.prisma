@@ -1,0 +1,87 @@
+/// A synthetic benchmark suite, e.g. "PassMark G3D Mark" or "3DMark Time Spy".
+///
+/// `weightInIndex` is how much this suite contributes to the derived
+/// `gamingIndex`. Weights are relative and do not need to sum to 1.
+model Benchmark {
+  id String @id @default(uuid())
+
+  slug     String       @unique // "passmark-g3d"
+  name     String // "PassMark G3D Mark"
+  vendor   String // "PassMark"
+  target   HardwareKind
+  /// Optional grouping for the UI: "gaming", "compute", "render", "2d".
+  category String?
+  version  String?
+  unit     String       @default("points")
+
+  higherIsBetter Boolean @default(true)
+  weightInIndex  Float   @default(0)
+  isActive       Boolean @default(true)
+
+  description String?
+  sourceUrl   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cpuScores CpuBenchmarkScore[]
+  gpuScores GpuBenchmarkScore[]
+
+  @@index([target, isActive])
+  @@map("benchmarks")
+}
+
+/// One benchmark result for one CPU from one source.
+///
+/// Several sources may report the same benchmark for the same CPU; the index
+/// job reduces them (weighted by `sampleCount`) before normalizing.
+model CpuBenchmarkScore {
+  id String @id @default(uuid())
+
+  cpu         Cpu       @relation(fields: [cpuId], references: [id], onDelete: Cascade)
+  cpuId       String
+  benchmark   Benchmark @relation(fields: [benchmarkId], references: [id], onDelete: Cascade)
+  benchmarkId String
+
+  score       Float
+  minScore    Float?
+  maxScore    Float?
+  sampleCount Int?
+
+  source     String // "passmark" | "geekbench" | "internal"
+  sourceUrl  String?
+  capturedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cpuId, benchmarkId, source])
+  @@index([benchmarkId, score])
+  @@map("cpu_benchmark_scores")
+}
+
+/// One benchmark result for one GPU from one source. Mirror of `CpuBenchmarkScore`.
+model GpuBenchmarkScore {
+  id String @id @default(uuid())
+
+  gpu         Gpu       @relation(fields: [gpuId], references: [id], onDelete: Cascade)
+  gpuId       String
+  benchmark   Benchmark @relation(fields: [benchmarkId], references: [id], onDelete: Cascade)
+  benchmarkId String
+
+  score       Float
+  minScore    Float?
+  maxScore    Float?
+  sampleCount Int?
+
+  source     String
+  sourceUrl  String?
+  capturedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gpuId, benchmarkId, source])
+  @@index([benchmarkId, score])
+  @@map("gpu_benchmark_scores")
+}

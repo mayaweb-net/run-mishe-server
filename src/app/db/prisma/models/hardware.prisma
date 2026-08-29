@@ -1,0 +1,205 @@
+/// A desktop/laptop processor.
+///
+/// Spec fields are for display and filtering only. Every estimation code path
+/// reads `gamingIndex` (0..100), which is derived from `CpuBenchmarkScore` rows
+/// by the index job and must never be written by hand.
+model Cpu {
+  id String @id @default(uuid())
+
+  /// URL segment, e.g. "intel-core-i5-13600k".
+  slug           String @unique
+  /// Lowercased, punctuation-stripped name used as the matching key.
+  /// e.g. "intel core i5 13600k".
+  normalizedName String @unique
+  /// Display name, e.g. "Intel Core i5-13600K".
+  name           String
+  vendor         Vendor
+
+  family       String? // "Core i5"
+  series       String? // "13th Gen"
+  generation   Int?
+  codename     String? // "Raptor Lake"
+  architecture String?
+  socket       String? // "LGA1700"
+  releaseDate  DateTime?
+
+  performanceCores Int
+  efficiencyCores  Int    @default(0)
+  threads          Int
+  baseClockMhz     Int?
+  boostClockMhz    Int?
+  l2CacheMb        Float?
+  l3CacheMb        Float?
+  tdpWatt          Int?
+  maxTempC         Int?
+  processNodeNm    Int?
+
+  formFactor FormFactor @default(DESKTOP)
+  isUnlocked Boolean    @default(false)
+  isX3d      Boolean    @default(false)
+
+  integratedGpu   Gpu?    @relation("CpuIntegratedGpu", fields: [integratedGpuId], references: [id], onDelete: SetNull)
+  integratedGpuId String?
+
+  /// e.g. ["DDR4-3200", "DDR5-5600"]
+  memoryTypes     String[]
+  memoryChannels  Int?
+  maxMemoryGb     Int?
+  pcieVersion     Float?
+  pcieLanes       Int?
+  /// e.g. ["AVX2", "AVX-512"]
+  instructionSets String[]
+
+  // ---- derived, written only by the index job ----
+  singleThreadIndex Float?
+  multiThreadIndex  Float?
+  /// 0..100, scaled so the fastest known gaming CPU is 100.
+  gamingIndex       Float?
+  indexCalculatedAt DateTime?
+
+  msrpUsd    Int?
+  quality    DataQuality @default(IMPORTED)
+  sourceName String?
+  sourceUrl  String?
+  /// Untouched payload from the importer, kept so records can be re-parsed
+  /// later without re-fetching the source.
+  rawPayload Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  benchmarkScores    CpuBenchmarkScore[]
+  aliases            HardwareAlias[]
+  fpsSamples         FpsSample[]
+  fpsSubmissions     FpsSubmission[]
+  requirementOptions GameRequirementOption[]
+  userBuilds         UserBuild[]
+  checkSnapshots     CheckSnapshot[]
+
+  @@index([vendor, formFactor])
+  @@index([gamingIndex])
+  @@index([family, generation])
+  @@map("cpus")
+}
+
+/// A graphics processor: discrete card, laptop chip, or an iGPU referenced by `Cpu`.
+///
+/// `shadingUnits` intentionally collapses CUDA cores / stream processors /
+/// shaders — they are the same quantity under three vendor names.
+/// `tdpWatt` likewise collapses TDP / TBP / TGP.
+model Gpu {
+  id String @id @default(uuid())
+
+  slug           String @unique
+  normalizedName String @unique
+  name           String
+  vendor         Vendor
+
+  family       String? // "GeForce RTX 40"
+  series       String? // "RTX 4060"
+  generation   Int?
+  architecture String? // "Ada Lovelace"
+  codename     String? // "AD107"
+  chip         String?
+  releaseDate  DateTime?
+
+  shadingUnits    Int?
+  tmus            Int?
+  rops            Int?
+  tensorCores     Int?
+  rayTracingCores Int?
+
+  baseClockMhz   Int?
+  boostClockMhz  Int?
+  gameClockMhz   Int?
+  memoryClockMhz Int?
+
+  vramGb        Int?
+  memoryType    String? // "GDDR6X"
+  memoryBusBits Int?
+  bandwidthGbps Float?
+
+  busInterface String? // "PCIe 4.0 x16"
+  pcieVersion  Float?
+  pcieLanes    Int?
+
+  tdpWatt         Int?
+  recommendedPsuW Int?
+
+  formFactor    FormFactor @default(DESKTOP)
+  isWorkstation Boolean    @default(false)
+
+  supportsRayTracing    Boolean @default(false)
+  /// DLSS major version (2/3/4). null means unsupported.
+  dlssVersion           Int?
+  /// FSR major version (1/2/3/4). null means unsupported.
+  fsrVersion            Int?
+  supportsXess          Boolean @default(false)
+  supportsFrameGen      Boolean @default(false)
+  supportsMultiFrameGen Boolean @default(false)
+  supportsAv1Encode     Boolean @default(false)
+  supportsAv1Decode     Boolean @default(false)
+  supportsCuda          Boolean @default(false)
+  directxVersion        String?
+  vulkanVersion         String?
+  openglVersion         String?
+  maxDisplays           Int?
+
+  // ---- derived, written only by the index job ----
+  /// 0..100, scaled so the fastest known gaming GPU is 100.
+  gamingIndex       Float?
+  computeIndex      Float?
+  indexCalculatedAt DateTime?
+
+  msrpUsd    Int?
+  quality    DataQuality @default(IMPORTED)
+  sourceName String?
+  sourceUrl  String?
+  rawPayload Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  benchmarkScores    GpuBenchmarkScore[]
+  aliases            HardwareAlias[]
+  fpsSamples         FpsSample[]
+  fpsSubmissions     FpsSubmission[]
+  requirementOptions GameRequirementOption[]
+  userBuilds         UserBuild[]
+  checkSnapshots     CheckSnapshot[]
+  integratedInCpus   Cpu[]                   @relation("CpuIntegratedGpu")
+
+  @@index([vendor, formFactor])
+  @@index([gamingIndex])
+  @@index([family, generation])
+  @@map("gpus")
+}
+
+/// Every spelling a piece of hardware can appear under: user free-text input,
+/// Steam requirement strings, importer variants.
+///
+/// `alias` is stored already normalized. An alias must resolve to exactly one
+/// piece of hardware per kind, which is what the unique constraint enforces —
+/// ambiguous strings like "3060" have to be assigned deliberately.
+///
+/// Exactly one of `cpuId` / `gpuId` is set; a CHECK constraint is added by hand
+/// in the migration (see document/data-model.md).
+model HardwareAlias {
+  id    String       @id @default(uuid())
+  kind  HardwareKind
+  alias String
+
+  cpu   Cpu?    @relation(fields: [cpuId], references: [id], onDelete: Cascade)
+  cpuId String?
+  gpu   Gpu?    @relation(fields: [gpuId], references: [id], onDelete: Cascade)
+  gpuId String?
+
+  /// Tie-breaker when several aliases match a fuzzy query. Higher wins.
+  weight    Float    @default(1)
+  createdAt DateTime @default(now())
+
+  @@unique([kind, alias])
+  @@index([cpuId])
+  @@index([gpuId])
+  @@map("hardware_aliases")
+}

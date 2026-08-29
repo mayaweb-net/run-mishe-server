@@ -1,0 +1,110 @@
+model Game {
+  id String @id @default(uuid())
+
+  slug   String  @unique
+  name   String
+  nameFa String?
+
+  releaseDate DateTime?
+  engine      String? // "Unreal Engine 5"
+  developer   String?
+  publisher   String?
+  genres      String[]
+  coverUrl    String?
+  description String?
+
+  steamAppId Int? @unique
+  igdbId     Int? @unique
+
+  /// Drives cold-start coefficients for games that have no FpsSample rows yet.
+  /// Set from the recommended-spec hardware index during ingestion, then
+  /// corrected by hand for outliers.
+  demandTier  DemandTier @default(MEDIUM)
+  /// Prioritizes which games get manual FPS sampling first.
+  isPopular   Boolean    @default(false)
+  popularity  Int?
+  isPublished Boolean    @default(true)
+
+  quality    DataQuality @default(IMPORTED)
+  sourceName String?
+  sourceUrl  String?
+  rawPayload Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  requirements   GameRequirement[]
+  profile        GameProfile?
+  scalings       GameScaling[]
+  fpsSamples     FpsSample[]
+  fpsSubmissions FpsSubmission[]
+  checkSnapshots CheckSnapshot[]
+
+  @@index([isPopular, popularity])
+  @@index([demandTier])
+  @@map("games")
+}
+
+/// One published requirement tier for a game.
+///
+/// `rawCpuText` / `rawGpuText` are kept verbatim forever: the parser will be
+/// rewritten several times and needs something to re-run against.
+model GameRequirement {
+  id String @id @default(uuid())
+
+  game   Game            @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  gameId String
+  tier   RequirementTier
+
+  rawCpuText String?
+  rawGpuText String?
+  os         String?
+  ramGb      Int?
+  vramGb     Int?
+  storageGb  Int?
+  directX    String?
+  needsSsd   Boolean @default(false)
+  notes      String?
+
+  sourceName String?
+  sourceUrl  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  options GameRequirementOption[]
+
+  @@unique([gameId, tier])
+  @@map("game_requirements")
+}
+
+/// A single hardware alternative extracted from a requirement line.
+///
+/// Requirement text is almost always a list ("GTX 1060 or RX 580"), so one
+/// requirement fans out into several options. `matchScore` below the review
+/// threshold means the parser guessed and a human should confirm.
+model GameRequirementOption {
+  id String @id @default(uuid())
+
+  requirement   GameRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  requirementId String
+  kind          HardwareKind
+
+  cpu   Cpu?    @relation(fields: [cpuId], references: [id], onDelete: SetNull)
+  cpuId String?
+  gpu   Gpu?    @relation(fields: [gpuId], references: [id], onDelete: SetNull)
+  gpuId String?
+
+  /// The exact substring this option was parsed from.
+  matchedText String?
+  /// Parser confidence, 0..1.
+  matchScore  Float   @default(0)
+  needsReview Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([requirementId, kind])
+  @@index([cpuId])
+  @@index([gpuId])
+  @@map("game_requirement_options")
+}

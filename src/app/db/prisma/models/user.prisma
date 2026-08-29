@@ -2,5 +2,9 @@ model User {
   id    String @id @default(uuid())
   phone String @unique
 
+  builds         UserBuild[]
+  checkSnapshots CheckSnapshot[]
+  fpsSubmissions FpsSubmission[]
+
   @@map("users")
 }

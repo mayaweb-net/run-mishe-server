@@ -1,0 +1,49 @@
+/// One run of one importer. Importers write here first and only touch the
+/// canonical tables from `ImportRecord` rows, so a bad scrape can be inspected
+/// and replayed instead of corrupting the catalog.
+model ImportBatch {
+  id String @id @default(uuid())
+
+  source String // "techpowerup-gpu" | "steam-requirements" | "passmark-cpu"
+  kind   String // "gpu" | "cpu" | "game" | "requirement" | "benchmark" | "fps"
+  status ImportStatus @default(PENDING)
+
+  /// Counts and timings: { fetched, applied, skipped, needsReview, failed }.
+  stats Json?
+  error String?
+
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  records ImportRecord[]
+
+  @@index([source, startedAt])
+  @@map("import_batches")
+}
+
+/// A single staged row from an importer, kept as raw payload until it is
+/// normalized and applied to the canonical tables.
+model ImportRecord {
+  id String @id @default(uuid())
+
+  batch   ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  batchId String
+
+  /// Identifier in the source system, e.g. a TechPowerUp slug or Steam appid.
+  externalId String
+  payload    Json
+
+  status     ImportRecordStatus @default(PENDING)
+  /// Id of the canonical row this record created or updated.
+  targetId   String?
+  /// Confidence of the name-to-entity match, 0..1.
+  matchScore Float?
+  error      String?
+
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@unique([batchId, externalId])
+  @@index([status])
+  @@map("import_records")
+}

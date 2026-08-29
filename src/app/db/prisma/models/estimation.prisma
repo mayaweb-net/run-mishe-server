@@ -1,0 +1,172 @@
+/// A measured frame rate for one (game, GPU, CPU, settings) combination.
+///
+/// This is the ground truth the whole estimator is fitted against. Without
+/// rows here, every prediction falls back to cold-start coefficients derived
+/// from `Game.demandTier`.
+model FpsSample {
+  id String @id @default(uuid())
+
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  gameId String
+  gpu    Gpu    @relation(fields: [gpuId], references: [id], onDelete: Cascade)
+  gpuId  String
+  cpu    Cpu    @relation(fields: [cpuId], references: [id], onDelete: Cascade)
+  cpuId  String
+
+  resolution ScreenResolution
+  preset     QualityPreset
+  upscaler   Upscaler         @default(NONE)
+  rayTracing Boolean          @default(false)
+  frameGen   Boolean          @default(false)
+  ramGb      Int?
+
+  avgFps        Float
+  onePercentLow Float?
+  minFps        Float?
+  maxFps        Float?
+
+  source     String // "techpowerup" | "youtube:<channel>" | "user" | "internal"
+  sourceUrl  String?
+  /// Weight used during calibration, 0..1. Lab measurements ~1.0,
+  /// crowd-sourced ~0.4.
+  confidence Float    @default(0.7)
+  capturedAt DateTime @default(now())
+
+  /// sha256 of the normalized tuple (game, gpu, cpu, settings, source, url).
+  /// Makes re-running an importer idempotent.
+  dedupeKey String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gameId, resolution, preset])
+  @@index([gameId, gpuId])
+  @@index([gameId, cpuId])
+  @@map("fps_samples")
+}
+
+/// A frame rate reported by a visitor. Kept apart from `FpsSample` so that
+/// unmoderated data can never reach the calibration job; approving a
+/// submission copies it into `FpsSample` with a lower `confidence`.
+model FpsSubmission {
+  id String @id @default(uuid())
+
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  gameId String
+  gpu    Gpu    @relation(fields: [gpuId], references: [id], onDelete: Cascade)
+  gpuId  String
+  cpu    Cpu    @relation(fields: [cpuId], references: [id], onDelete: Cascade)
+  cpuId  String
+
+  resolution ScreenResolution
+  preset     QualityPreset
+  upscaler   Upscaler         @default(NONE)
+  rayTracing Boolean          @default(false)
+  frameGen   Boolean          @default(false)
+  ramGb      Int?
+
+  avgFps        Float
+  onePercentLow Float?
+
+  submittedBy   User?   @relation(fields: [submittedById], references: [id], onDelete: SetNull)
+  submittedById String?
+  ipHash        String?
+  userAgent     String?
+
+  status           ModerationStatus @default(PENDING)
+  reviewedAt       DateTime?
+  reviewNote       String?
+  /// Set when the submission has been promoted into `FpsSample`.
+  promotedSampleId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([gameId, status])
+  @@map("fps_submissions")
+}
+
+/// Fitted per-game performance model. Written only by the calibration job.
+///
+/// Reference point is 1080p / HIGH / no upscaler / no ray tracing:
+///   fpsGpu = gpuCoef * gpuIndex ^ gpuExponent  * scaling(resolution, preset, ...)
+///   fpsCpu = cpuCoef * cpuIndex ^ cpuExponent  * cpuPresetFactor(preset)
+///   fps    = (fpsGpu ^ -blendK + fpsCpu ^ -blendK) ^ (-1 / blendK)
+///
+/// `fpsCpu` deliberately ignores resolution — that asymmetry is what makes the
+/// bottleneck shift from CPU to GPU as resolution rises.
+model GameProfile {
+  id String @id @default(uuid())
+
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  gameId String @unique
+
+  gpuCoef     Float
+  gpuExponent Float @default(1.0)
+  cpuCoef     Float
+  cpuExponent Float @default(1.0)
+  /// Sharpness of the soft-min between the GPU and CPU limits. Higher is
+  /// closer to a hard min(). At k = 8 a perfectly balanced system lands ~8%
+  /// below either individual limit, which matches measured data.
+  blendK      Float @default(8)
+
+  /// { "R1080P": { "HIGH": 6, "ULTRA": 8 }, "R2160P": { ... } } in GB.
+  vramNeedGb Json
+  ramNeedGb  Int  @default(16)
+
+  /// Number of FpsSample rows the fit used.
+  sampleCount        Int       @default(0)
+  rSquared           Float?
+  /// false means the coefficients came from `Game.demandTier` defaults, not
+  /// from measurements. Surface this in the UI as low confidence.
+  isCalibrated       Boolean   @default(false)
+  calibratedAt       DateTime?
+  /// Version of the calibration algorithm, so old fits can be found and redone.
+  calibrationVersion Int       @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("game_profiles")
+}
+
+/// Per-game multiplier applied to the GPU-limited frame rate for a settings
+/// combination, relative to the 1080p/HIGH reference point.
+/// Fitted from `FpsSample` rows; falls back to `DefaultScaling` when missing.
+model GameScaling {
+  id String @id @default(uuid())
+
+  game       Game             @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  gameId     String
+  resolution ScreenResolution
+  preset     QualityPreset
+  upscaler   Upscaler         @default(NONE)
+  rayTracing Boolean          @default(false)
+
+  multiplier  Float
+  sampleCount Int   @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gameId, resolution, preset, upscaler, rayTracing])
+  @@map("game_scalings")
+}
+
+/// Global fallback for `GameScaling`, seeded once from aggregate industry data.
+/// Used for every game that is not calibrated yet.
+model DefaultScaling {
+  id String @id @default(uuid())
+
+  resolution ScreenResolution
+  preset     QualityPreset
+  upscaler   Upscaler         @default(NONE)
+  rayTracing Boolean          @default(false)
+
+  multiplier Float
+  note       String?
+
+  @@unique([resolution, preset, upscaler, rayTracing])
+  @@map("default_scalings")
+}

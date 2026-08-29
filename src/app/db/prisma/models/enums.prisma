@@ -1,0 +1,127 @@
+enum HardwareKind {
+  CPU
+  GPU
+
+  @@map("hardware_kind")
+}
+
+enum Vendor {
+  INTEL
+  AMD
+  NVIDIA
+  APPLE
+  QUALCOMM
+  ARM
+  OTHER
+
+  @@map("vendor")
+}
+
+enum FormFactor {
+  DESKTOP
+  LAPTOP
+  SERVER
+  INTEGRATED
+  CONSOLE
+
+  @@map("form_factor")
+}
+
+enum QualityPreset {
+  LOW
+  MEDIUM
+  HIGH
+  ULTRA
+
+  @@map("quality_preset")
+}
+
+enum ScreenResolution {
+  R720P
+  R1080P
+  R1440P
+  R2160P
+  UW1440P
+  UW2160P
+
+  @@map("screen_resolution")
+}
+
+enum Upscaler {
+  NONE
+  DLSS_QUALITY
+  DLSS_BALANCED
+  DLSS_PERFORMANCE
+  FSR_QUALITY
+  FSR_BALANCED
+  FSR_PERFORMANCE
+  XESS_QUALITY
+  XESS_BALANCED
+
+  @@map("upscaler")
+}
+
+enum RequirementTier {
+  MINIMUM
+  RECOMMENDED
+  HIGH
+  ULTRA
+
+  @@map("requirement_tier")
+}
+
+/// How demanding a game is, used to pick cold-start coefficients before the
+/// game has enough FpsSample rows to be calibrated.
+enum DemandTier {
+  LIGHT
+  MEDIUM
+  HEAVY
+  EXTREME
+
+  @@map("demand_tier")
+}
+
+/// Trust level of a row. VERIFIED rows are never overwritten by importers.
+enum DataQuality {
+  VERIFIED
+  IMPORTED
+  ESTIMATED
+
+  @@map("data_quality")
+}
+
+enum ImportStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  PARTIAL
+
+  @@map("import_status")
+}
+
+enum ImportRecordStatus {
+  PENDING
+  APPLIED
+  SKIPPED
+  NEEDS_REVIEW
+  FAILED
+
+  @@map("import_record_status")
+}
+
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("moderation_status")
+}
+
+enum CheckKind {
+  RUN_CHECK
+  FPS
+  BOTTLENECK
+
+  @@map("check_kind")
+}

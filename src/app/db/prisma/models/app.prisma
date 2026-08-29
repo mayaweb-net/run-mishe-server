@@ -1,0 +1,62 @@
+/// A PC configuration saved by a visitor, so they do not re-pick their parts
+/// on every check.
+model UserBuild {
+  id String @id @default(uuid())
+
+  user        User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String?
+  /// Set for anonymous visitors identified by cookie.
+  anonymousId String?
+
+  name         String?
+  cpu          Cpu     @relation(fields: [cpuId], references: [id], onDelete: Cascade)
+  cpuId        String
+  gpu          Gpu     @relation(fields: [gpuId], references: [id], onDelete: Cascade)
+  gpuId        String
+  ramGb        Int
+  storageIsSsd Boolean @default(true)
+
+  isPrimary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([anonymousId])
+  @@map("user_builds")
+}
+
+/// A frozen result behind a shareable short link (`/c/{publicCode}`).
+///
+/// `resultJson` is stored as computed rather than recomputed on read: the
+/// estimator changes over time and a shared link must keep showing the numbers
+/// the sender actually saw.
+model CheckSnapshot {
+  id String @id @default(uuid())
+
+  publicCode String    @unique
+  kind       CheckKind
+
+  game   Game?   @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  gameId String?
+  cpu    Cpu     @relation(fields: [cpuId], references: [id], onDelete: Cascade)
+  cpuId  String
+  gpu    Gpu     @relation(fields: [gpuId], references: [id], onDelete: Cascade)
+  gpuId  String
+  ramGb  Int
+
+  inputJson     Json
+  resultJson    Json
+  /// Estimator version that produced `resultJson`.
+  engineVersion Int  @default(1)
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+
+  viewCount Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([kind, createdAt])
+  @@index([gameId])
+  @@map("check_snapshots")
+}
