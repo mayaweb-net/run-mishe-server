@@ -61,3 +61,8 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 **/apps/**/.env
 node_modules/
 dist/
+
+# Raw hardware dumps are never committed: scripts/build_hardware_seed.py reads
+# them from a download directory and emits the seed/hardware/*-data.ts files.
+src/app/db/prisma/seed/hardware/*.csv
+__pycache__/

@@ -16,10 +16,10 @@
 ## فاز ۰ — پایه‌ی دیتا · ~۱ هفته
 
 - [x] نوشتن مدل‌های Prisma
+- [x] رفع ناهماهنگی مسیر seed در `prisma.config.ts` (به `seed/seed.ts` اشاره می‌کند)
 - [ ] `prisma migrate dev --create-only`، افزودن SQL دستی از [`data-model.md`](./data-model.md#چیزهایی-که-باید-دستی-به-migration-اضافه-شوند)، سپس apply
-- [ ] رفع ناهماهنگی مسیر seed در `prisma.config.ts` (به `seed/seed.ts` اشاره کند)
-- [ ] seed جدول‌های ثابت: `Benchmark` (۸ ردیف)، `DefaultScaling` (۲۴ ردیف)
-- [ ] ماژول `hardware`: `normalizeHardwareName`، تولید alias، سرچ trigram
+- [ ] seed جدول‌های ثابت: `Benchmark` (بقیه‌ی ردیف‌ها)، `DefaultScaling` (۲۴ ردیف)
+- [ ] ماژول `hardware`: سرچ trigram روی `HardwareAlias`
 - [ ] ماژول `games`: سرچ trigram
 
 **تمام‌شده وقتی:** `GET /hardware/gpus?q=3060` و `GET /games?q=cyber` جواب درست می‌دهند.
@@ -28,15 +28,21 @@
 
 ## فاز ۱ — کاتالوگ سخت‌افزار · ~۱ تا ۲ هفته
 
-- [ ] importer مشخصات GPU (TechPowerUp + ویکی‌پدیا)
-- [ ] importer مشخصات CPU (Intel ARK + AMD + ویکی‌پدیا)
-- [ ] importer بنچمارک (PassMark، 3DMark، Geekbench)
-- [ ] `hardware-index.job.ts` — محاسبه‌ی `gamingIndex`
-- [ ] رگرسیون fallback برای قطعات بدون بنچمارک
+- [x] کاتالوگ ۲۵۰ GPU (۱۷۹ دسکتاپ + ۷۱ لپ‌تاپ) با مشخصات کامل
+- [x] کاتالوگ ۲۵۰ CPU دسکتاپ با مشخصات کامل
+- [x] تولید alias (۶۳۸ برای GPU، ۷۹۰ برای CPU) بدون هیچ برخوردی
+- [x] `Gpu.gamingIndex` از شاخص GPU Ark، ذخیره‌شده در `GpuBenchmarkScore` تا بازتولیدپذیر بماند
+- [ ] **منبع بنچمارک CPU** — بلاک‌کننده‌ی `Cpu.gamingIndex`، جزئیات در
+      [`data-sources.md`](./data-sources.md#شکاف-باز-cpugamingindex)
+- [ ] `hardware-index.job.ts` — بازمحاسبه‌ی `gamingIndex` از روی `*BenchmarkScore`
+- [ ] رگرسیون fallback برای قطعات بدون بنچمارک (`quality = ESTIMATED`)
 
 **تمام‌شده وقتی:** بیش از ۸۵٪ GPU ها و CPU ها `gamingIndex` دارند، و مرتب‌سازی بر اساس آن با
 رنکینگ‌های شناخته‌شده‌ی بازار همخوان است (این را چشمی چک کن، پنج دقیقه وقت می‌برد و خطاهای فاحش
 را نشان می‌دهد).
+
+> GPU ها الان ۱۰۰٪ پوشش دارند، CPU ها صفر. تا وقتی منبع بنچمارک CPU پیدا نشود، فاز ۳ (که به
+> `fpsCpu` نیاز دارد) نمی‌تواند شروع شود.
 
 **دستاورد قابل انتشار:** صفحات `/parts/cpu` و `/parts/gpu` که همین حالا در
 `src/config/navigation.ts` لینک دارند ولی صفحه ندارند.

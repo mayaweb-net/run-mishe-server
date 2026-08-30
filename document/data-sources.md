@@ -2,6 +2,90 @@
 
 ---
 
+## کاتالوگ سخت‌افزار: وضعیت فعلی
+
+کاتالوگ ساخته شده و داخل مخزن است. **هیچ CSV ای در مخزن نیست** — فقط فایل‌های TypeScript تولیدشده:
+
+| فایل | محتوا |
+| --- | --- |
+| `seed/hardware/gpu-data.ts` | ۲۵۰ GPU با مشخصات کامل و `gamingIndex` |
+| `seed/hardware/cpu-data.ts` | ۲۵۰ CPU دسکتاپ با مشخصات کامل |
+| `seed/hardware/types.ts` | تایپ `GpuSeed` و `CpuSeed` |
+| `seed/hardware/shared.ts` | نرمال‌سازی نام، slug، ساخت alias |
+| `seed/hardware/gpu.ts` / `cpu.ts` | seeder ها |
+| `seed/hardware/verify.ts` | اعتبارسنجی آفلاین، بدون دیتابیس |
+
+### منابع هر فیلد
+
+| داده | منبع | لایسنس |
+| --- | --- | --- |
+| مشخصات GPU + شاخص عملکرد (`gpiScore`) | [GPU Ark](https://gpuark.com/datasets/) | CC BY 4.0 — **attribution الزامی** |
+| TMU / ROP / نام نسل / کدنیم دای | dump سبک TechPowerUp | — |
+| سیگنال محبوبیت GPU (`retailBoardCount`) | [BuildCores Open DB](https://github.com/buildcores/buildcores-open-db) | ODC-By 1.0 — **attribution الزامی** |
+| مشخصات CPU | BuildCores Open DB | ODC-By 1.0 |
+
+هر دو لایسنس اجازه‌ی استفاده‌ی تجاری می‌دهند به شرط ذکر منبع. لینک attribution باید در فوتر سایت
+بیاید، نه فقط در این فایل.
+
+### دو رتبه‌بندی مستقل
+
+`popularityRank` و `performanceRank` عمداً از هم جدا هستند:
+
+- **`popularityRank`** از تعداد مدل‌های خرده‌فروشی هر تراشه در BuildCores می‌آید. یعنی «چند شرکت
+  از این چیپ کارت ساخته‌اند» که پروکسی خوبی برای «چند نفر این کارت را دارند» است. صدر جدول
+  RTX 3060 Ti و RTX 4070 است، نه RTX 5090 — و همین درست است.
+- **`performanceRank`** از `gpiScore` می‌آید. صدرش RTX 5090 است.
+
+تراشه‌های لپ‌تاپ در BuildCores کارت خرده‌فروشی ندارند، پس همه‌شان انتهای `popularityRank` جمع
+می‌شوند و بر اساس عملکرد مرتب می‌شوند.
+
+### ترکیب کاتالوگ
+
+- GPU: ۱۷۹ دسکتاپ + ۷۱ لپ‌تاپ (فیلد `formFactor` تفکیکشان می‌کند)
+- CPU: فقط دسکتاپ. Xeon / EPYC / Threadripper و مدل‌های کم‌مصرف `T` حذف شده‌اند
+- کارت‌هایی که هرگز عرضه نشدند (RTX 4090 Ti، Arc B770، …) در لیست `GPU_PHANTOMS` بلاک شده‌اند
+- کارت‌های دوتراشه‌ای (GTX TITAN Z، R9 295X2) حذف شده‌اند چون تخمین تک‌GPU توصیفشان نمی‌کند
+
+### شکاف باز: `Cpu.gamingIndex`
+
+**هیچ منبع بنچمارک CPU ای که لایسنس باز داشته باشد پیدا نشد.** BuildCores فقط مشخصات دارد.
+بنابراین `Cpu.gamingIndex` برای هر ۲۵۰ ردیف `null` است و seeder عمداً آن را پر نمی‌کند.
+
+این طبق «قانون شماره ۱» در README است: لایه ۳ فقط از روی شواهد لایه ۲ ساخته می‌شود. اگر از روی
+مشخصات یک عدد حدسی می‌ساختیم، دیگر قابل بازتولید و قابل دفاع نبود.
+
+**تا وقتی این پر نشود، محاسبه‌ی `fpsCpu` و گلوگاه کار نمی‌کند.** گزینه‌ها:
+
+1. PassMark CPU Mark — لایسنس تجاری دارد، تمیزترین مسیر
+2. Geekbench Browser — قابل جست‌وجو، ولی شرایط استفاده را باید بررسی کرد
+3. استخراج دستی از ریویوهای معتبر برای ۵۰ CPU پرتکرار، بقیه با رگرسیون روی مشخصات
+   (آن ردیف‌ها باید `quality = ESTIMATED` بگیرند)
+
+### بازتولید کاتالوگ
+
+`scripts/build_hardware_seed.py` فایل‌های `*-data.ts` را می‌سازد. ورودی‌هایش در مخزن نیستند و
+باید دانلود شوند:
+
+```bash
+mkdir -p /tmp/run-mishe-hw
+curl -o /tmp/run-mishe-hw/gpuark-gpu-specs.csv \
+     https://gpuark.com/datasets/gpuark-gpu-specs.csv
+git clone https://github.com/buildcores/buildcores-open-db ../buildcores-open-db
+
+python scripts/build_hardware_seed.py \
+    --buildcores ../buildcores-open-db --datasets /tmp/run-mishe-hw
+
+pnpm exec tsx src/app/db/prisma/seed/hardware/verify.ts
+```
+
+`gpudb.csv` (برای TMU/ROP) اختیاری است؛ بدون آن آن دو فیلد `null` می‌مانند.
+
+> تابع `normalize()` در اسکریپت پایتون و `normalizeHardwareName()` در `shared.ts` باید **دقیقاً
+> یکسان** بمانند. اگر واگرا شوند، اسکریپت ردیف‌هایی تولید می‌کند که به‌نظر متمایزند ولی روی
+> unique index دیتابیس برخورد می‌کنند.
+
+---
+
 ## منابع
 
 ### مشخصات GPU
@@ -126,19 +210,27 @@ function normalizeHardwareName(raw: string): string {
 
 ### تولید alias
 
-برای هر قطعه، بعد از upsert این‌ها را بساز:
+پیاده‌سازی در `seed/hardware/shared.ts` (تابع `buildAliases`) است. برای هر قطعه:
 
 ```
-1. normalizedName خودش                         → "nvidia geforce rtx 4070 ti"
-2. بدون نام برند                                → "geforce rtx 4070 ti" → "rtx 4070 ti"
-3. بدون پیشوند خط محصول                         → "4070 ti"
-4. با ظرفیت حافظه                               → "rtx 4070 ti 12gb"
-5. واریانت لپ‌تاپ (اگر formFactor = LAPTOP)      → "rtx 4070 laptop" / "rtx 4070 mobile"
-6. برای CPU: بدون کلمه‌ی core/ryzen             → "i5 13600k" / "5600x"
+GPU:  nvidia geforce rtx 4070 ti     ← نام کامل
+      geforce rtx 4070 ti            ← بدون نام برند
+      rtx 4070 ti                    ← فقط توکن مدل
+
+CPU:  intel core i5 13600k           ← نام کامل
+      i5 13600k                      ← بدون "Intel Core"
+      intel i5 13600k                ← بدون فقط کلمه‌ی "Core"
 ```
 
-اگر alias تولیدشده با unique constraint برخورد کرد، آن را **دور بینداز** و در لاگ بنویس — یعنی
-مبهم است و باید دستی تصمیم بگیری کدام قطعه صاحبش شود.
+**عدد خالی هرگز alias نمی‌شود.** `"4070"` بین RTX 4070 و RTX 4070 Ti و RTX 4070 SUPER و نسخه‌ی
+لپ‌تاپ مبهم است؛ اگر آن را بسازیم، جستجو یکی را خودسرانه انتخاب می‌کند.
+
+**تراشه‌های لپ‌تاپ توکن مدل خالی نمی‌گیرند.** `"rtx 4070"` همیشه به کارت دسکتاپ می‌رسد، وگرنه
+کاربری که کارت دسکتاپ دارد ممکن است تخمین لپ‌تاپ بگیرد.
+
+هر alias فقط به یک قطعه می‌تواند اشاره کند (unique روی `(kind, alias)`). seeder ترتیبی جلو می‌رود
+و اولین قطعه‌ای که یک alias را claim کند مالکش می‌ماند؛ بقیه آن alias را از دست می‌دهند و با نام
+کامل خودشان پیدا می‌شوند. چون ترتیب بر اساس `popularityRank` است، رایج‌ترین قطعه برنده می‌شود.
 
 ---
 

@@ -96,14 +96,17 @@ limitingComponent = fpsCpu < fpsGpu ? "CPU" : "GPU"
 ## وضعیت فعلی
 
 - [x] اسکیما نوشته و با `prisma validate` تأیید شده
-- [ ] migration اول (نیاز به بالا آمدن Postgres: `docker compose -f docker/pg.docker-compose.yml up -d`)
-- [ ] seed جداول ثابت (`Benchmark`, `DefaultScaling`)
-- [ ] importer ها
+- [x] مسیر seed در `prisma.config.ts` اصلاح شد
+- [x] کاتالوگ سخت‌افزار: ۲۵۰ GPU و ۲۵۰ CPU، seed شده و روی Postgres واقعی تست شده
+- [x] `Gpu.gamingIndex` برای هر ۲۵۰ کارت پر است (از شاخص GPU Ark)
+- [ ] `Cpu.gamingIndex` — **هنوز خالی است**، منبع بنچمارک CPU لازم داریم
+- [ ] seed جداول ثابت (`Benchmark` های دیگر، `DefaultScaling`)
+- [ ] importer بازی‌ها (IGDB + Steam)
 - [ ] موتور تخمین
 - [ ] ماژول‌های Nest و کنترلرها
 
-> نکته: `prisma.config.ts` مسیر seed را `src/app/db/prisma/seed.ts` می‌داند ولی فایل واقعی
-> `src/app/db/prisma/seed/seed.ts` است. قبل از اولین `prisma db seed` این را درست کن.
+جزئیات کاتالوگ و اینکه چطور بازتولید می‌شود در
+[`data-sources.md`](./data-sources.md#کاتالوگ-سخت‌افزار-وضعیت-فعلی) آمده.
 
 ## دستورها
 
@@ -113,5 +116,9 @@ docker compose -f docker/redis.docker-compose.yml up -d
 
 pnpm prisma:generate
 pnpm prisma:migrate:dev --name hardware_game_estimation
+pnpm exec prisma db seed
 pnpm prisma:studio
+
+# اعتبارسنجی کاتالوگ بدون نیاز به دیتابیس
+pnpm exec tsx src/app/db/prisma/seed/hardware/verify.ts
 ```

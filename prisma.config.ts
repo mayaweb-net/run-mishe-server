@@ -5,7 +5,7 @@ export default defineConfig({
   schema: 'src/app/db/prisma',
   migrations: {
     path: 'src/app/db/prisma/migrations',
-    seed: 'tsx --tsconfig tsconfig.app.json src/app/db/prisma/seed.ts',
+    seed: 'tsx --tsconfig tsconfig.json src/app/db/prisma/seed/seed.ts',
   },
   datasource: {
     url:
