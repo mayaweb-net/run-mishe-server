@@ -66,6 +66,40 @@ kind + alias  →  cpuId | gpuId
 
 ---
 
+## لایه ۱ — کاتالوگ بازی
+
+### `Game`
+
+هویت بازی برای هر سه محصول. کلیدهای بیرونی:
+
+| فیلد | کاربرد |
+| --- | --- |
+| `steamAppId` | upsert از Steam و لینک به Store |
+| `igdbId` | غنی‌سازی بعدی (هنوز seed نشده) |
+| `slug` | URL صفحه‌ی بازی |
+| `popularity` | عدد فعلی Steam Charts (بازیکنان آنلاین) |
+| `demandTier` | cold-start برای استیمیتور؛ هنوز از recommended hardware پر نشده |
+| `rawPayload` | snapshot استور (platforms، categories، HTML خام requirement، …) |
+
+### `GameRequirement`
+
+یک tier منتشرشده (`MINIMUM` / `RECOMMENDED` / …). فیلدهای ساختاریافته (`ramGb`، `storageGb`،
+`directX`، `needsSsd`) از HTML استیم parse می‌شوند، ولی `rawCpuText` / `rawGpuText` **همیشه**
+verbatim می‌مانند تا matcher قابل replay باشد.
+
+### `GameRequirementOption`
+
+یک جایگزین سخت‌افزاری داخل همان tier. کلید idempotency:
+
+```
+@@unique([requirementId, kind, matchedText])
+```
+
+`matchedText` زیررشته‌ی دقیق متن منبع است (با املای اصلی استیم). optionهایی که از seed می‌آیند
+`matchScore = 1` دارند؛ fuzzy/review برای صف ادمین و سرچ کاربر رزرو شده.
+
+---
+
 ## لایه ۲ — شواهد
 
 ### `Benchmark` + `CpuBenchmarkScore` / `GpuBenchmarkScore`
@@ -164,8 +198,8 @@ const dedupeKey = sha256(
 
 ## چیزهایی که باید دستی به migration اضافه شوند
 
-Prisma این‌ها را تولید نمی‌کند. بعد از ساخت اولین migration، این بلوک را به انتهای فایل SQL اضافه کن
-(یا با `prisma migrate dev --create-only` migration را بساز، ویرایش کن، بعد apply کن).
+Prisma این‌ها را تولید نمی‌کند. migration اولیه (`20260830182000_init`) جداول را می‌سازد، ولی
+اکستنشن‌ها و ایندکس‌های زیر هنوز نیستند. آن‌ها را در یک migration بعدی اضافه کن.
 
 ### ۱. اکستنشن‌های Postgres
 

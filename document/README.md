@@ -96,17 +96,20 @@ limitingComponent = fpsCpu < fpsGpu ? "CPU" : "GPU"
 ## وضعیت فعلی
 
 - [x] اسکیما نوشته و با `prisma validate` تأیید شده
+- [x] migration اولیه در `src/app/db/prisma/migrations/20260830182000_init`
 - [x] مسیر seed در `prisma.config.ts` اصلاح شد
 - [x] کاتالوگ سخت‌افزار: ۲۵۰ GPU و ۲۵۰ CPU، seed شده و روی Postgres واقعی تست شده
 - [x] `Gpu.gamingIndex` برای هر ۲۵۰ کارت پر است (از شاخص GPU Ark)
+- [x] کاتالوگ بازی: ۲۳۴ بازی محبوب Steam Charts + requirementهای Steam Store
+- [x] matching دقیق CPU/GPU روی متن requirement → `GameRequirementOption`
+- [ ] اکستنشن‌های `pg_trgm` / `unaccent` و ایندکس‌های سرچ فازی (SQL دستی)
 - [ ] `Cpu.gamingIndex` — **هنوز خالی است**، منبع بنچمارک CPU لازم داریم
-- [ ] seed جداول ثابت (`Benchmark` های دیگر، `DefaultScaling`)
-- [ ] importer بازی‌ها (IGDB + Steam)
+- [ ] seed جدول‌های ثابت (`DefaultScaling` و بقیه‌ی `Benchmark` ها)
+- [ ] محاسبه‌ی `Game.demandTier` از روی سخت‌افزار recommended
 - [ ] موتور تخمین
 - [ ] ماژول‌های Nest و کنترلرها
 
-جزئیات کاتالوگ و اینکه چطور بازتولید می‌شود در
-[`data-sources.md`](./data-sources.md#کاتالوگ-سخت‌افزار-وضعیت-فعلی) آمده.
+جزئیات کاتالوگ سخت‌افزار و بازی در [`data-sources.md`](./data-sources.md) آمده.
 
 ## دستورها
 
@@ -115,10 +118,11 @@ docker compose -f docker/pg.docker-compose.yml up -d   # Postgres روی پور�
 docker compose -f docker/redis.docker-compose.yml up -d
 
 pnpm prisma:generate
-pnpm prisma:migrate:dev --name hardware_game_estimation
+pnpm prisma:migrate:deploy
 pnpm exec prisma db seed
 pnpm prisma:studio
 
-# اعتبارسنجی کاتالوگ بدون نیاز به دیتابیس
+# اعتبارسنجی آفلاین، بدون دیتابیس
 pnpm exec tsx src/app/db/prisma/seed/hardware/verify.ts
+pnpm exec tsx src/app/db/prisma/seed/games/verify-requirements.ts
 ```

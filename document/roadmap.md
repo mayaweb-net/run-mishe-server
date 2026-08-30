@@ -17,8 +17,10 @@
 
 - [x] نوشتن مدل‌های Prisma
 - [x] رفع ناهماهنگی مسیر seed در `prisma.config.ts` (به `seed/seed.ts` اشاره می‌کند)
-- [ ] `prisma migrate dev --create-only`، افزودن SQL دستی از [`data-model.md`](./data-model.md#چیزهایی-که-باید-دستی-به-migration-اضافه-شوند)، سپس apply
-- [ ] seed جدول‌های ثابت: `Benchmark` (بقیه‌ی ردیف‌ها)، `DefaultScaling` (۲۴ ردیف)
+- [x] migration اولیه (`20260830182000_init`)
+- [ ] افزودن SQL دستی از [`data-model.md`](./data-model.md#چیزهایی-که-باید-دستی-به-migration-اضافه-شوند)
+      (`pg_trgm` / `unaccent` و ایندکس‌های سرچ) به migration بعدی
+- [ ] seed جدول‌های ثابت: بقیه‌ی `Benchmark` ها، `DefaultScaling` (۲۴ ردیف)
 - [ ] ماژول `hardware`: سرچ trigram روی `HardwareAlias`
 - [ ] ماژول `games`: سرچ trigram
 
@@ -51,13 +53,26 @@
 
 ## فاز ۲ — کاتالوگ بازی · ~۱ هفته
 
-- [ ] importer IGDB (نام، تاریخ، ژانر، کاور، موتور)
-- [ ] importer Steam برای `pc_requirements`
-- [ ] parser متن requirement → `GameRequirementOption`
-- [ ] محاسبه‌ی `Game.demandTier` از روی سخت‌افزار recommended
-- [ ] مرور دستی ۵۰ بازی محبوب
+- [x] لیست محبوبیت از Steam Charts (۲۵۰ ردیف، ۱۶ غیر‌بازی حذف شد → ۲۳۴ بازی)
+- [x] fetch متادیتا و `pc_requirements` از Steam Store API → `seed/games/game-data.ts`
+- [x] seed `Game` + `GameRequirement` (min/recommended)
+- [x] matching دقیق alias روی متن requirement → `GameRequirementOption`
+- [ ] محاسبه‌ی `Game.demandTier` از روی سخت‌افزار recommended (نیاز به `gamingIndex`)
+- [ ] غنی‌سازی اختیاری با IGDB (موتور، نام فارسی، کاور جایگزین)
+- [ ] مرور دستی بازی‌هایی که هیچ option ای resolve نشده‌اند
 
-**تمام‌شده وقتی:** برای ۹۰٪ بازی‌های محبوب، هر دو tier حداقل یک option با `matchScore > 0.75` دارند.
+**پوشش فعلی matching دقیق (آفلاین، روی کاتالوگ ۲۵۰تایی سخت‌افزار):**
+
+| فیلد | فیلدهای دارای متن | فیلدهای با حداقل یک match | option ساخته‌شده |
+| --- | --- | --- | --- |
+| CPU | ۴۳۰ | ۲۳۳ (~۵۴٪) | ۳۸۳ |
+| GPU | ۴۲۲ | ۳۳۵ (~۷۹٪) | ۵۷۱ |
+
+باقی‌مانده‌ها عمدتاً مدل‌های خیلی قدیمی خارج از کاتالوگ، یا متن‌های کلی مثل
+`Dual Core 2.8 GHz` / `DirectX 11 compatible` هستند — عمداً fuzzy نمی‌شوند.
+
+**تمام‌شده وقتی:** برای ۹۰٪ بازی‌های محبوب، هر دو tier حداقل یک option با `matchScore = 1`
+دارند، یا برای بقیه مسیر `needsReview` در ادمین مشخص است.
 
 ---
 

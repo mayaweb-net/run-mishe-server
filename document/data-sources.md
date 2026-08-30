@@ -86,8 +86,50 @@ pnpm exec tsx src/app/db/prisma/seed/hardware/verify.ts
 
 ---
 
-## منابع
+## کاتالوگ بازی: وضعیت فعلی
 
+کاتالوگ بازی هم داخل مخزن است؛ فقط TypeScript تولیدشده، نه HTML/CSV خام:
+
+| فایل | محتوا |
+| --- | --- |
+| `seed/games/game-data.ts` | ۲۳۴ بازی + requirementهای ساختاریافته |
+| `seed/games/types.ts` | تایپ `GameSeed` و `GameRequirementSeed` |
+| `seed/games/game.ts` | seeder (`Game` + `GameRequirement` + option matching) |
+| `seed/games/requirement-matcher.ts` | matching دقیق longest-match روی alias |
+| `seed/games/verify-requirements.ts` | گزارش پوشش آفلاین، بدون دیتابیس |
+
+### منابع هر فیلد
+
+| داده | منبع | یادداشت |
+| --- | --- | --- |
+| لیست و محبوبیت (`popularity`) | [Steam Charts](https://steamcharts.com/) top players | ۲۵۰ ردیف؛ ابزارها و launcherها حذف شدند |
+| نام، تاریخ، ژانر، سازنده، ناشر، کاور، توضیح کوتاه | Steam Store `appdetails` | `https://store.steampowered.com/api/appdetails?appids={id}` |
+| `pc_requirements` (min / recommended) | همان API | HTML خام در `steamSnapshot` نگه داشته می‌شود |
+| `GameRequirementOption` | matching روی `HardwareAlias` | فقط exact؛ fuzzy عمداً در seed نیست |
+
+یک اپ (`1329410`، MahjongSoul) از API با `success: false` برگشت؛ ردیف CSV نگه داشته شد ولی
+متادیتا/requirement جعلی ساخته نشد.
+
+### بازتولید کاتالوگ بازی
+
+ورودی‌های خام در `.temp/` می‌مانند و commit نمی‌شوند:
+
+```bash
+# ۱) tbody جدول Steam Charts را در این مسیر بگذار
+#    .temp/steam-charts/game.html
+python scripts/parse_steam_charts.py
+# → .temp/steam-charts/game.csv
+
+# ۲) fetch استور (کش در .temp/steam-appdetails/)
+python scripts/build_game_seed.py
+# → seed/games/game-data.ts
+
+pnpm exec tsx src/app/db/prisma/seed/games/verify-requirements.ts
+```
+
+---
+
+## منابع
 ### مشخصات GPU
 
 | منبع | پوشش | فرمت | یادداشت |
@@ -117,9 +159,9 @@ pnpm exec tsx src/app/db/prisma/seed/hardware/verify.ts
 
 | منبع | چه چیزی | دسترسی |
 | --- | --- | --- |
-| [IGDB API](https://api-docs.igdb.com/) | نام، تاریخ، ژانر، کاور، موتور | رایگان با اکانت Twitch. **بهترین گزینه برای شروع** |
-| Steam Store API | `pc_requirements` (min و recommended) | `https://store.steampowered.com/api/appdetails?appids={id}&l=english` |
-| SteamSpy / Steam charts | محبوبیت، برای `Game.isPopular` | عمومی |
+| Steam Charts | محبوبیت لحظه‌ای، لیست seed اولیه | HTML جدول top players |
+| Steam Store API | متادیتا + `pc_requirements` | `https://store.steampowered.com/api/appdetails?appids={id}&l=english` |
+| [IGDB API](https://api-docs.igdb.com/) | موتور، نام جایگزین، غنی‌سازی بعدی | رایگان با اکانت Twitch — هنوز به seed وصل نشده |
 
 ### FPS واقعی (`FpsSample`)
 
@@ -166,13 +208,12 @@ fetch  →  ImportRecord (payload خام)  →  normalize  →  match  →  upse
 3. hardware aliases  (تولیدی، از روی نام‌ها)
 4. benchmarks + scores
 5. hardware-index job        → gamingIndex پر می‌شود
-6. games                     (IGDB)
-7. game requirements         (Steam) → نیاز به alias های مرحله ۳
+6. games + requirements      (Steam Charts + Store)  ← الان در seed هست
+7. requirement options       (exact match روی alias مرحله ۳)  ← الان در seed هست
 8. demand tier               → نیاز به gamingIndex مرحله ۵
 9. fps samples
 10. calibration job          → GameProfile / GameScaling
 ```
-
 ---
 
 ## نرمال‌سازی نام
@@ -236,10 +277,26 @@ CPU:  intel core i5 13600k           ← نام کامل
 
 ## Matching: از متن به قطعه
 
-جایی که هم ورودی کاربر و هم متن requirement استیم را resolve می‌کنی. سه مرحله، به ترتیب:
+جایی که هم ورودی کاربر و هم متن requirement استیم را resolve می‌کنی.
+
+### seed فعلی (`requirement-matcher.ts`)
+
+برای requirement فقط **exact longest-match** روی aliasهای نرمال‌شده اجرا می‌شود:
+
+1. متن را توکن کن (علامت‌های ®/™ و چسبندگی‌هایی مثل `6600XT` / `gtx1060` را جدا کن).
+2. از هر موقعیت، طولانی‌ترین alias مطابق را بگیر تا `RTX 4070 Ti` به `RTX 4070` سقوط نکند.
+3. اگر پسوند مدل (`Ti` / `SUPER` / `XT` / …) بعد از match باقی مانده و در alias نبود، رد کن.
+4. مدل ناشناخته را به قطعهٔ مشابه وصل نکن — option نمی‌سازیم.
+
+نتیجه با `matchScore = 1` و `needsReview = false` در `GameRequirementOption` upsert می‌شود.
+کلید idempotency: `@@unique([requirementId, kind, matchedText])`.
+
+### سرچ API کاربر (هنوز ساخته نشده)
+
+برای autocomplete کاربر سه مرحله‌ی زیر باقی است:
 
 ```ts
-// ۱. تطابق دقیق روی alias — اکثر موارد اینجا حل می‌شود
+// ۱. تطابق دقیق روی alias
 const exact = await findAlias(kind, normalized);
 if (exact) return { hardware: exact, score: 1.0 };
 
@@ -265,14 +322,12 @@ return { hardware: fuzzy[0] ?? null, score: fuzzy[0]?.score ?? 0, needsReview: t
 "GTX 1660 Super (6GB) or better"
 ```
 
-مراحل:
+مراحل فعلی در `build_game_seed.py` + `requirement-matcher.ts`:
 
-1. HTML را به متن ساده تبدیل کن.
-2. روی جداکننده‌ها split کن: ` or `, ` / `, `,`, ` | `, ` یا `.
-3. عبارت‌های اضافه را حذف کن: `or better`, `or equivalent`, `minimum`, `recommended`, `and above`.
-4. هر قطعه را جدا نرمال و match کن.
-5. برای هر کدام یک `GameRequirementOption` بساز — حتی آن‌هایی که resolve نشدند
-   (با `cpuId = null`, `gpuId = null`, `needsReview = true`, و `matchedText` پرشده).
+1. HTML را به متن ساده تبدیل کن و فیلدهای OS/Processor/Graphics/… را جدا کن.
+2. RAM / storage / DirectX / SSD را با regex ساختاریافته استخراج کن.
+3. کل `rawCpuText` / `rawGpuText` را نگه دار و روی همان متن matching کن
+   (جدا کردن با `or`/`/` لازم نیست؛ matcher چند alias را پشت‌سرهم پیدا می‌کند).
 
 **مهم:** `rawCpuText` / `rawGpuText` را همان‌طور که آمده نگه دار. parser حداقل سه بار بازنویسی
 خواهد شد و بدون متن خام باید کل استیم را دوباره fetch کنی.
@@ -287,7 +342,8 @@ return { hardware: fuzzy[0] ?? null, score: fuzzy[0]?.score ?? 0, needsReview: t
 | --- | --- |
 | `Cpu` / `Gpu` | `normalizedName` (unique) → upsert |
 | `Game` | `steamAppId` یا `igdbId` (unique) → upsert |
-| `GameRequirement` | `(gameId, tier)` (unique) → upsert، و option های قبلی را حذف و بازتولید کن |
+| `GameRequirement` | `(gameId, tier)` (unique) → upsert |
+| `GameRequirementOption` | `(requirementId, kind, matchedText)` (unique) → upsert؛ optionهای غیرlegacy که دیگر match نمی‌شوند حذف می‌شوند |
 | `CpuBenchmarkScore` / `GpuBenchmarkScore` | `(hardwareId, benchmarkId, source)` (unique) |
 | `FpsSample` | `dedupeKey` (sha256، فرمولش در `data-model.md`) |
 | `ImportRecord` | `(batchId, externalId)` |

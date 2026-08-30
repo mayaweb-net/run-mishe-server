@@ -4,9 +4,9 @@ services:
     container_name: run-mishe-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:run-mishe}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:run-mishe}
-      POSTGRES_DB: ${POSTGRES_DB:run-mishe}
+      POSTGRES_USER: ${POSTGRES_USER:-run-mishe}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-run-mishe}
+      POSTGRES_DB: ${POSTGRES_DB:-run-mishe}
     ports:
       - "5434:5432"
     volumes:

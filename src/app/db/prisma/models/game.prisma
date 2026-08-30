@@ -96,13 +96,14 @@ model GameRequirementOption {
   gpuId String?
 
   /// The exact substring this option was parsed from.
-  matchedText String?
+  matchedText String
   /// Parser confidence, 0..1.
   matchScore  Float   @default(0)
   needsReview Boolean @default(false)
 
   createdAt DateTime @default(now())
 
+  @@unique([requirementId, kind, matchedText])
   @@index([requirementId, kind])
   @@index([cpuId])
   @@index([gpuId])
