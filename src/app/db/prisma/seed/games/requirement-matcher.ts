@@ -66,9 +66,14 @@ function tokenParts(value: string): string[] {
     return [numberThenLetters[1], numberThenLetters[2]];
   }
 
-  const compactGpuModel = /^(gtx|rtx|rx|hd)(\d+)$/.exec(value);
+  const compactGpuModel = /^(gt|gts|gtx|rtx|rx|hd|r[79])(\d+)$/i.exec(value);
   if (compactGpuModel) {
-    return [compactGpuModel[1], compactGpuModel[2]];
+    return [compactGpuModel[1].toLowerCase(), compactGpuModel[2]];
+  }
+
+  const compactFx = /^(fx)(\d{4})$/.exec(value);
+  if (compactFx) {
+    return [compactFx[1], compactFx[2]];
   }
 
   const compactRyzenFamily = /^(ryzen)(\d+)$/.exec(value);

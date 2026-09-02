@@ -33,6 +33,9 @@ export interface RequirementFieldSuggestions {
 const MODEL_PATTERNS = [
   /(?:intel\s+)?core\s+i[3579][-\s]?\d+\w*/gi,
   /ryzen\s*\d+\s*\d+\w*/gi,
+  /(?:geforce\s+)?(?:gtx|rtx|gt|gts)\s*\d+\w*/gi,
+  /(?:radeon\s+)?(?:rx|hd|r[79])\s*\d+\w*/gi,
+  /fx[-\s]?\d{4}/gi,
   /(?:geforce\s+)?gtx\s*\d+\w*/gi,
   /(?:geforce\s+)?rtx\s*\d+\w*/gi,
   /(?:radeon\s+)?rx\s*\d+\w*/gi,

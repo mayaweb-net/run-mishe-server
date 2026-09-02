@@ -33,20 +33,78 @@ interface PreparedGpu {
  * across vendors and generations.
  */
 const GPU_MODEL_TOKEN =
-  /\b((?:RTX|GTX|RX|Arc)\s+[A-Za-z0-9]+(?:\s+(?:Ti|SUPER|XT|XTX|GRE))*(?:\s+\d+\s*GB)?)/i;
+  /\b((?:RTX|GTX|GT|GTS|RX|HD|R[79])\s+[A-Za-z0-9]+(?:\s+(?:Ti|SUPER|XT|XTX|GRE))*(?:\s+\d+\s*GB)?|\d{3,4}\s+GT)\b/i;
+
+/** Steam often names a whole family; map to one catalogue SKU for matching. */
+const GPU_SERIES_ALIASES: Record<string, string[]> = {
+  'nvidia-geforce-gtx-660': [
+    'GTX 600 series',
+    'GeForce GTX 600 series',
+    'NVIDIA GeForce GTX 600 series',
+    'Nvidia 600 Series GPU',
+  ],
+  'amd-radeon-rx-460': ['RX 400 series', 'AMD RX 400 series'],
+  'nvidia-geforce-gtx-970': ['GeForce 970', '970', 'NVIDIA 970'],
+  'nvidia-geforce-rtx-2060': ['GeForce 2060', '2060'],
+  'nvidia-geforce-gtx-1050': ['NVIDIA 1050', '1050'],
+  'nvidia-geforce-gtx-760': ['GeForce 760'],
+  'nvidia-geforce-gtx-750': ['GTS 750'],
+  'nvidia-geforce-gtx-550-ti': ['GTX 550'],
+  'amd-radeon-r9-270x': ['R7 270X'],
+  'amd-radeon-r9-290': ['AMD Radeon 290', 'Radeon 290'],
+  'nvidia-geforce-gtx-770': ['nVidia 770'],
+  'nvidia-geforce-9800-gt': ['9800 GT', 'NVIDIA 9800 GT'],
+  'nvidia-geforce-9600-gt': ['9600 GT', '9600GT'],
+  'nvidia-geforce-8600-gt': ['8600', '9600GT'],
+  'amd-radeon-hd-6870': ['HD 7000 series', 'AMD Radeon HD 7000 series'],
+  'amd-radeon-hd-7970': ['AMD 7970', 'nVidia 770'],
+  'amd-radeon-hd-5570': ['5570', 'AMD 5570'],
+  'amd-radeon-hd-5450': ['5450', 'HD5450'],
+  'nvidia-geforce-gts-450': ['450', 'nVidia 450'],
+  'nvidia-geforce-6600': ['6600', 'NVidia 6600'],
+  'amd-radeon-x1300': ['X1300', 'ATI X1300'],
+};
 
 function gpuAliasVariants(gpu: GpuSeed): string[] {
   const token = GPU_MODEL_TOKEN.exec(gpu.name)?.[1];
-  if (!token) return [];
+  if (!token) {
+    const seriesAliases = GPU_SERIES_ALIASES[gpu.slug];
+    return seriesAliases ? [...seriesAliases] : [];
+  }
 
   // A laptop chip must never answer to the plain desktop model name.
   if (gpu.formFactor === 'LAPTOP') return [];
 
   // Steam often omits or disagrees on VRAM while still naming the same model.
-  // Keep the exact token and a model-only alias; the claimed-alias rule below
-  // picks one canonical SKU if multiple VRAM variants exist.
   const modelOnlyToken = token.replace(/\s+\d+\s*GB$/i, '').trim();
-  return [...new Set([token, modelOnlyToken])];
+  const variants = [...new Set([token, modelOnlyToken])];
+
+  const gtxMatch = /^GTX\s+(\d{3,4}(?:\s*(?:Ti|SUPER))?)$/i.exec(modelOnlyToken);
+  if (gtxMatch) {
+    variants.push(`GeForce ${gtxMatch[1]}`, gtxMatch[1]);
+  }
+
+  const rtxMatch = /^RTX\s+(\d{3,4}(?:\s*(?:Ti|SUPER))?)$/i.exec(modelOnlyToken);
+  if (rtxMatch) {
+    variants.push(`GeForce ${rtxMatch[1]}`, rtxMatch[1]);
+  }
+
+  const legacyGtMatch = /^(\d{3,4})\s+GT$/i.exec(modelOnlyToken);
+  if (legacyGtMatch) {
+    variants.push(`${legacyGtMatch[1]} GT`, `GeForce ${legacyGtMatch[1]} GT`);
+  }
+
+  const gtMatch = /^(GT|GTS)\s+(\d{3,4})$/i.exec(modelOnlyToken);
+  if (gtMatch) {
+    variants.push(`${gtMatch[1]} ${gtMatch[2]}`);
+  }
+
+  const seriesAliases = GPU_SERIES_ALIASES[gpu.slug];
+  if (seriesAliases) {
+    variants.push(...seriesAliases);
+  }
+
+  return [...new Set(variants)];
 }
 
 function toCreateInput(gpu: GpuSeed): Prisma.GpuCreateInput {

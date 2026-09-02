@@ -12,13 +12,11 @@ import { CPU_SEED } from './cpu-data';
 import { prepareGpus } from './gpu';
 import { GPU_SEED } from './gpu-data';
 
-const EXPECTED = 250;
-
-function report(label: string, prepared: { aliases: string[] }[]): void {
+function report(label: string, prepared: { aliases: string[] }[], expected: number): void {
   const aliases = prepared.flatMap((item) => item.aliases);
-  if (prepared.length !== EXPECTED) {
+  if (prepared.length !== expected) {
     throw new Error(
-      `Expected ${EXPECTED} ${label} entries, found ${prepared.length}.`,
+      `Expected ${expected} ${label} entries, found ${prepared.length}.`,
     );
   }
   console.log(
@@ -30,11 +28,11 @@ function report(label: string, prepared: { aliases: string[] }[]): void {
 const gpus = prepareGpus();
 const cpus = prepareCpus();
 
-report('GPU', gpus);
-report('CPU', cpus);
+report('GPU', gpus, GPU_SEED.length);
+report('CPU', cpus, CPU_SEED.length);
 
 const desktop = GPU_SEED.filter((gpu) => gpu.formFactor === 'DESKTOP').length;
-console.log(`  GPU form factor: ${desktop} desktop, ${250 - desktop} laptop`);
+console.log(`  GPU form factor: ${desktop} desktop, ${GPU_SEED.length - desktop} laptop`);
 console.log(
   `  GPU gamingIndex range: ${Math.min(...GPU_SEED.map((g) => g.gamingIndex))}` +
     ` .. ${Math.max(...GPU_SEED.map((g) => g.gamingIndex))}`,

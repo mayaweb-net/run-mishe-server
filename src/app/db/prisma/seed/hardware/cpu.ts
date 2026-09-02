@@ -18,6 +18,26 @@ import type { CpuSeed } from './types';
 const BUILDCORES_URL = 'https://github.com/buildcores/buildcores-open-db';
 const SOURCE_NAME = 'BuildCores Open DB';
 
+/** Steam often names a whole family; map to one catalogue SKU for matching. */
+const CPU_SERIES_ALIASES: Record<string, string[]> = {
+  'intel-core-i5-8400': [
+    'Intel Core i5',
+    'Core i5',
+    'Intel i5',
+    'Intel I5',
+  ],
+  'intel-core-i3-8100': ['Intel Core i3', 'Core i3', 'Intel i3'],
+  'intel-core-i7-8700': ['Intel Core i7', 'Core i7', 'Intel i7', 'Intel Core i7+'],
+  'amd-ryzen-5-5600': [
+    'Ryzen 5',
+    'Ryzen 5 CPU or Equivalent',
+    'Intel i5/Ryzen 5 series',
+    'Intel Core i7 or AMD Ryzen 5',
+  ],
+  'intel-core-2-duo-e8400': ['Core 2 Duo', 'Intel Core 2 Duo'],
+  'amd-phenom-x3-8650': ['AMD Phenom X3 8650'],
+};
+
 interface PreparedCpu {
   data: Prisma.CpuCreateInput;
   aliases: string[];
@@ -37,8 +57,36 @@ function cpuAliasVariants(cpu: CpuSeed): string[] {
     .trim();
 
   if (short && short !== cpu.name) variants.push(short);
-  // "Intel Core i5-13600K" is also written "Intel i5 13600K".
   variants.push(cpu.name.replace(/\bCore\s+/i, ''));
+
+  const fxMatch = cpu.name.match(/\bFX-(\d{4})\b/i);
+  if (fxMatch) {
+    variants.push(`FX-${fxMatch[1]}`, `FX ${fxMatch[1]}`);
+  }
+
+  const aSeriesMatch = cpu.name.match(/\bA(\d+)-(\d{4}\w*)\b/i);
+  if (aSeriesMatch) {
+    variants.push(`A${aSeriesMatch[1]}-${aSeriesMatch[2]}`);
+  }
+
+  const phenomMatch = cpu.name.match(/Phenom II X(\d)\s+(\d+)/i);
+  if (phenomMatch) {
+    variants.push(
+      `Phenom II X${phenomMatch[1]} ${phenomMatch[2]}`,
+      `Phenom X${phenomMatch[1]} ${phenomMatch[2]}`,
+    );
+  }
+
+  const pentiumMatch = cpu.name.match(/Pentium G(\d{4})/i);
+  if (pentiumMatch) {
+    variants.push(`Pentium G${pentiumMatch[1]}`);
+  }
+
+  const seriesAliases = CPU_SERIES_ALIASES[cpu.slug];
+  if (seriesAliases) {
+    variants.push(...seriesAliases);
+  }
+
   return variants;
 }
 

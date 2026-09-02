@@ -643,16 +643,16 @@ def build_cpus(buildcores: Path) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------- emit
 
 GPU_HEADER = f"""/**
- * Curated catalogue of the {TARGET} most widely available desktop gaming GPUs.
+ * Curated catalogue of desktop gaming GPUs (top {TARGET} retail picks + Steam requirement gaps).
  *
- * Generated from open datasets; do not edit by hand - regenerate instead.
- *   specs + popularity : TechPowerUp reference specs, retail board counts from
- *                        BuildCores Open DB (ODC-By 1.0) {BUILDCORES_URL}
+ * Base rows: generated from open datasets via `scripts/build_hardware_seed.py`
+ *   specs + popularity : TechPowerUp reference specs, BuildCores retail board counts (ODC-By 1.0)
+ *                        {BUILDCORES_URL}
  *   performance        : GPU Ark `gpi_value` (CC BY 4.0) {GPU_ARK_URL}
+ * Extra rows: appended by `scripts/extend_hardware_from_unmatched.py` when Steam
+ *   requirements reference GPUs outside the top catalogue.
  *
- * `gamingIndex` is the GPI rescaled so the fastest card in this catalogue is
- * 100. It is stored alongside the raw `gpiScore`, which is also written to
- * `GpuBenchmarkScore` so the index stays reproducible from evidence.
+ * `gamingIndex` is GPI rescaled so the fastest card in the catalogue is 100.
  */
 
 import type {{ GpuSeed }} from './types';
@@ -661,15 +661,14 @@ export const GPU_SEED: readonly GpuSeed[] = [
 """
 
 CPU_HEADER = f"""/**
- * Curated catalogue of {TARGET} desktop gaming CPUs.
+ * Curated catalogue of desktop gaming CPUs (top {TARGET} retail picks + Steam requirement gaps).
  *
- * Generated from the BuildCores Open DB (ODC-By 1.0) {BUILDCORES_URL}
- * Do not edit by hand - regenerate instead.
+ * Base rows: generated from BuildCores Open DB (ODC-By 1.0) {BUILDCORES_URL}
+ * Extra rows: appended by `scripts/extend_hardware_from_unmatched.py` from TechPowerUp
+ *   specs when Steam requirements reference CPUs outside the top catalogue.
  *
- * NOTE: this source carries no benchmark scores, so `gamingIndex` is
- * deliberately left unset on every CPU. It stays null until a licensed CPU
- * benchmark source (PassMark / Geekbench) is imported and the index job runs.
- * See document/data-sources.md.
+ * NOTE: this source carries no benchmark scores, so `gamingIndex` is deliberately
+ * left unset until a licensed CPU benchmark source is imported. See document/data-sources.md.
  */
 
 import type {{ CpuSeed }} from './types';
@@ -743,12 +742,67 @@ CPU_FIELDS = [
 ]
 
 
+def iter_ts_objects(text: str):
+    """Yield raw `{ ... }` object blocks from a seed TypeScript array file."""
+    start = text.find("[")
+    if start < 0:
+        return
+    i = start + 1
+    length = len(text)
+    while i < length:
+        while i < length and text[i] != "{":
+            i += 1
+        if i >= length:
+            break
+        depth = 0
+        obj_start = i
+        in_string = False
+        string_char = ""
+        while i < length:
+            char = text[i]
+            if in_string:
+                if char == "\\":
+                    i += 2
+                    continue
+                if char == string_char:
+                    in_string = False
+            elif char in "'\"":
+                in_string = True
+                string_char = char
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    yield text[obj_start : i + 1]
+                    i += 1
+                    break
+            i += 1
+
+
+def load_preserved_object_blocks(path: Path, new_slugs: set[str]) -> list[str]:
+    """Keep requirement-driven rows whose slug is absent from a fresh top-{TARGET} build."""
+    if not path.is_file():
+        return []
+    kept: list[str] = []
+    for block in iter_ts_objects(path.read_text(encoding="utf-8")):
+        match = re.search(r"slug:\s*'([^']+)'", block)
+        if match and match.group(1) not in new_slugs:
+            kept.append(block)
+    return kept
+
+
 def emit(path: Path, header: str, rows: list[dict[str, Any]], fields: list[str]) -> None:
+    new_slugs = {row["slug"] for row in rows}
+    preserved = load_preserved_object_blocks(path, new_slugs)
     body = "\n".join(
         ts_object([(f, row.get(f)) for f in fields]) for row in rows
     )
+    if preserved:
+        body = f"{body},\n" + ",\n".join(preserved) if body else ",\n".join(preserved)
     path.write_text(f"{header}{body}\n];\n", encoding="utf-8")
-    print(f"wrote {len(rows):>3} entries -> {path.relative_to(REPO)}")
+    suffix = f" (+{len(preserved)} preserved)" if preserved else ""
+    print(f"wrote {len(rows):>3} entries{suffix} -> {path.relative_to(REPO)}")
 
 
 def main() -> None:

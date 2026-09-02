@@ -63,6 +63,7 @@ node_modules/
 dist/
 
 # Raw dumps are never committed. Generators emit the checked-in *-data.ts files.
+src/app/db/prisma/seed/*.csv
 src/app/db/prisma/seed/hardware/*.csv
 src/app/db/prisma/seed/games/*.csv
 src/app/db/prisma/seed/games/*.html
