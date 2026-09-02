@@ -9,6 +9,12 @@
         "swcrcPath": ".swcrc"
       }
     },
-    "deleteOutDir": true
+    "deleteOutDir": true,
+    "assets": [
+      {
+        "include": "app/db/generated/**/*",
+        "watchAssets": true
+      }
+    ]
   }
 }

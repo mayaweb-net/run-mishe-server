@@ -9,7 +9,7 @@ import { seedGpus } from './hardware/gpu';
 
 const databaseUrl =
   process.env.DATABASE_URL ??
-  'postgresql://run-mishe:run-mishe@localhost:5434/run-mishe';
+  'postgresql://run-mishe:run-mishe@localhost:55432/run-mishe';
 const adapter = new PrismaPg(databaseUrl);
 const prisma = new PrismaClient({ adapter });
 

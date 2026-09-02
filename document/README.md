@@ -107,14 +107,33 @@ limitingComponent = fpsCpu < fpsGpu ? "CPU" : "GPU"
 - [ ] seed جدول‌های ثابت (`DefaultScaling` و بقیه‌ی `Benchmark` ها)
 - [ ] محاسبه‌ی `Game.demandTier` از روی سخت‌افزار recommended
 - [ ] موتور تخمین
-- [ ] ماژول‌های Nest و کنترلرها
+- [x] ماژول‌های Nest: `hardware` (services) + `admin` (controllers)
 
-جزئیات کاتالوگ سخت‌افزار و بازی در [`data-sources.md`](./data-sources.md) آمده.
+## معماری ماژول‌های Nest
+
+```
+src/app/modules/
+  hardware/          ← سرویس‌های دامنه (cpu.service, gpu.service, …)
+  admin/             ← فقط کنترلرهای ادمین (admin.hardware.controller, …)
+  <domain>/          ← در آینده: games, auth, …
+```
+
+**قانون:** سرویس‌ها مشترک بین ادمین و کلاینت هستند. کنترلر ادمین فقط route و guard دارد و
+به سرویس دامنه وصل می‌شود. `AdminCpuService` نساز.
+
+| لایه | مسیر نمونه | مسئولیت |
+| --- | --- | --- |
+| Service | `hardware/cpu.service.ts` | Prisma، فیلتر، pagination، business logic |
+| Admin controller | `admin/controllers/admin.hardware.controller.ts` | `GET /admin/hardware/cpus` |
+| Public controller | `hardware/controllers/hardware.controller.ts` (آینده) | `GET /hardware/cpus` |
+
+جزئیات برای ایجنت‌ها: [`AGENTS.md`](../AGENTS.md)
+
 
 ## دستورها
 
 ```bash
-docker compose -f docker/pg.docker-compose.yml up -d   # Postgres روی پورت 5434
+docker compose -f docker/pg.docker-compose.yml up -d   # Postgres روی پورت 55432
 docker compose -f docker/redis.docker-compose.yml up -d
 
 pnpm prisma:generate

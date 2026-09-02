@@ -10,6 +10,6 @@ export default defineConfig({
   datasource: {
     url:
       process.env['DATABASE_URL'] ??
-      'postgresql://run-mishe:run-mishe@localhost:5434/run-mishe',
+      'postgresql://run-mishe:run-mishe@localhost:55432/run-mishe',
   },
 });
