@@ -34,6 +34,19 @@ export class ListGameQueryDto extends PaginationQueryDto {
   quality?: DataQuality;
 
   @IsOptional()
+  @IsIn([
+    'NEEDS_REVIEW',
+    'UNMATCHED_CPU',
+    'UNMATCHED_GPU',
+    'UNMATCHED_ANY',
+  ])
+  reviewStatus?:
+    | 'NEEDS_REVIEW'
+    | 'UNMATCHED_CPU'
+    | 'UNMATCHED_GPU'
+    | 'UNMATCHED_ANY';
+
+  @IsOptional()
   @IsIn(['name', 'releaseDate', 'popularity', 'createdAt'])
   sortBy: 'name' | 'releaseDate' | 'popularity' | 'createdAt' = 'name';
 

@@ -40,7 +40,13 @@ function gpuAliasVariants(gpu: GpuSeed): string[] {
   if (!token) return [];
 
   // A laptop chip must never answer to the plain desktop model name.
-  return gpu.formFactor === 'LAPTOP' ? [] : [token];
+  if (gpu.formFactor === 'LAPTOP') return [];
+
+  // Steam often omits or disagrees on VRAM while still naming the same model.
+  // Keep the exact token and a model-only alias; the claimed-alias rule below
+  // picks one canonical SKU if multiple VRAM variants exist.
+  const modelOnlyToken = token.replace(/\s+\d+\s*GB$/i, '').trim();
+  return [...new Set([token, modelOnlyToken])];
 }
 
 function toCreateInput(gpu: GpuSeed): Prisma.GpuCreateInput {

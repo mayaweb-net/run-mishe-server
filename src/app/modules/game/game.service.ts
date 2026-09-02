@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   HardwareKind,
   Prisma,
@@ -10,19 +14,30 @@ import { slugifyHardwareName } from '@/app/common/hardware/normalize-hardware-na
 import { ListGameQueryDto } from './dto/list-game-query.dto';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
+import { ApplyRequirementMatchesDto } from './dto/apply-requirement-matches.dto';
 import { GameRequirementInputDto } from './dto/game-requirement.dto';
+import { GameRequirementMatcherService } from './game-requirement-matcher.service';
 import {
   gameDetailSelect,
   gameListSelect,
   mapGameListItem,
   type GameListItem,
 } from './game.types';
+import {
+  type UnmatchedRequirementGameRef,
+  type UnmatchedRequirementItem,
+  type UnmatchedRequirementsReport,
+} from './game-unmatched-report.types';
+import { isGenericRequirementText } from './requirement-text.utils';
 
 export type GameDetail = Prisma.GameGetPayload<{ select: typeof gameDetailSelect }>;
 
 @Injectable()
 export class GameService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly requirementMatcher: GameRequirementMatcherService,
+  ) {}
 
   async list(query: ListGameQueryDto) {
     const where = this.buildWhere(query);
@@ -62,6 +77,8 @@ export class GameService {
     const { requirements, ...gameDto } = dto;
     const slug = gameDto.slug?.trim() || slugifyHardwareName(gameDto.name);
 
+    await this.validateRequirementHardwareIds(requirements);
+
     const game = await this.prisma.game.create({
       data: {
         name: gameDto.name,
@@ -96,6 +113,8 @@ export class GameService {
     await this.findById(id);
 
     const { requirements, releaseDate, name, slug, ...rest } = dto;
+
+    await this.validateRequirementHardwareIds(requirements);
 
     const data: Prisma.GameUpdateInput = {
       ...rest,
@@ -133,6 +152,225 @@ export class GameService {
     return { id };
   }
 
+  suggestRequirementMatches(gameId: string) {
+    return this.requirementMatcher.suggestForGame(gameId);
+  }
+
+  async getUnmatchedRequirementsReport(): Promise<UnmatchedRequirementsReport> {
+    const requirements = await this.prisma.gameRequirement.findMany({
+      where: {
+        tier: {
+          in: [RequirementTier.MINIMUM, RequirementTier.RECOMMENDED],
+        },
+        OR: [
+          {
+            rawCpuText: { not: null },
+            NOT: {
+              options: {
+                some: {
+                  kind: HardwareKind.CPU,
+                  cpuId: { not: null },
+                },
+              },
+            },
+          },
+          {
+            rawGpuText: { not: null },
+            NOT: {
+              options: {
+                some: {
+                  kind: HardwareKind.GPU,
+                  gpuId: { not: null },
+                },
+              },
+            },
+          },
+        ],
+      },
+      select: {
+        tier: true,
+        rawCpuText: true,
+        rawGpuText: true,
+        game: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
+        },
+        options: {
+          select: {
+            kind: true,
+            cpuId: true,
+            gpuId: true,
+          },
+        },
+      },
+    });
+
+    const grouped = new Map<
+      string,
+      Omit<UnmatchedRequirementItem, 'gameCount' | 'minimumCount' | 'recommendedCount'> & {
+        minimumCount: number;
+        recommendedCount: number;
+      }
+    >();
+
+    for (const requirement of requirements) {
+      const tier =
+        requirement.tier === RequirementTier.MINIMUM ||
+        requirement.tier === RequirementTier.RECOMMENDED
+          ? requirement.tier
+          : null;
+      if (!tier) continue;
+
+      const hasLinkedCpu = requirement.options.some(
+        (option) => option.kind === HardwareKind.CPU && option.cpuId != null,
+      );
+      const hasLinkedGpu = requirement.options.some(
+        (option) => option.kind === HardwareKind.GPU && option.gpuId != null,
+      );
+
+      const fields: Array<[HardwareKind, string | null]> = [
+        [HardwareKind.CPU, requirement.rawCpuText],
+        [HardwareKind.GPU, requirement.rawGpuText],
+      ];
+
+      for (const [kind, rawText] of fields) {
+        const trimmed = rawText?.trim();
+        if (!trimmed) continue;
+
+        const isLinked =
+          kind === HardwareKind.CPU ? hasLinkedCpu : hasLinkedGpu;
+        if (isLinked) continue;
+
+        const key = `${kind}:${trimmed}`;
+        const gameRef: UnmatchedRequirementGameRef = {
+          id: requirement.game.id,
+          slug: requirement.game.slug,
+          name: requirement.game.name,
+          tier,
+        };
+
+        const existing = grouped.get(key);
+        if (existing) {
+          if (tier === RequirementTier.MINIMUM) {
+            existing.minimumCount += 1;
+          } else {
+            existing.recommendedCount += 1;
+          }
+          existing.games.push(gameRef);
+          continue;
+        }
+
+        grouped.set(key, {
+          kind,
+          rawText: trimmed,
+          isGeneric: isGenericRequirementText(trimmed),
+          minimumCount: tier === RequirementTier.MINIMUM ? 1 : 0,
+          recommendedCount: tier === RequirementTier.RECOMMENDED ? 1 : 0,
+          games: [gameRef],
+        });
+      }
+    }
+
+    const items: UnmatchedRequirementItem[] = [...grouped.values()]
+      .map((item) => ({
+        kind: item.kind,
+        rawText: item.rawText,
+        isGeneric: item.isGeneric,
+        minimumCount: item.minimumCount,
+        recommendedCount: item.recommendedCount,
+        gameCount: item.games.length,
+        games: item.games.sort(
+          (left, right) =>
+            left.name.localeCompare(right.name) ||
+            left.tier.localeCompare(right.tier),
+        ),
+      }))
+      .sort(
+        (left, right) =>
+          Number(left.isGeneric) - Number(right.isGeneric) ||
+          right.gameCount - left.gameCount ||
+          left.kind.localeCompare(right.kind) ||
+          left.rawText.localeCompare(right.rawText),
+      );
+
+    const affectedGameIds = new Set<string>();
+    for (const item of items) {
+      for (const game of item.games) {
+        affectedGameIds.add(game.id);
+      }
+    }
+
+    const cpuItems = items.filter((item) => item.kind === HardwareKind.CPU);
+    const gpuItems = items.filter((item) => item.kind === HardwareKind.GPU);
+
+    return {
+      generatedAt: new Date().toISOString(),
+      summary: {
+        totalUnmatchedFields: items.reduce((sum, item) => sum + item.gameCount, 0),
+        uniqueCpuTexts: cpuItems.length,
+        uniqueGpuTexts: gpuItems.length,
+        actionableCpuTexts: cpuItems.filter((item) => !item.isGeneric).length,
+        actionableGpuTexts: gpuItems.filter((item) => !item.isGeneric).length,
+        affectedGames: affectedGameIds.size,
+      },
+      items,
+    };
+  }
+
+  async applyRequirementMatches(
+    gameId: string,
+    dto: ApplyRequirementMatchesDto,
+  ): Promise<GameDetail> {
+    await this.findById(gameId);
+
+    const cpuIds = dto.matches
+      .filter((match) => match.kind === HardwareKind.CPU)
+      .map((match) => match.hardwareId);
+    const gpuIds = dto.matches
+      .filter((match) => match.kind === HardwareKind.GPU)
+      .map((match) => match.hardwareId);
+
+    await this.validateHardwareIds(cpuIds, gpuIds);
+
+    for (const match of dto.matches) {
+      if (!this.isEditableRequirementTier(match.tier)) continue;
+
+      const requirement = await this.prisma.gameRequirement.findUnique({
+        where: {
+          gameId_tier: {
+            gameId,
+            tier: match.tier,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (!requirement) continue;
+
+      await this.prisma.gameRequirementOption.deleteMany({
+        where: {
+          requirementId: requirement.id,
+          kind: match.kind,
+          OR: [
+            { matchedText: { startsWith: 'unresolved:' } },
+            { needsReview: true, cpuId: null, gpuId: null },
+          ],
+        },
+      });
+
+      await this.syncAdminHardwareOption(
+        requirement.id,
+        match.kind,
+        match.hardwareId,
+      );
+    }
+
+    return this.findById(gameId);
+  }
+
   private buildWhere(query: ListGameQueryDto): Prisma.GameWhereInput {
     const where: Prisma.GameWhereInput = {};
 
@@ -152,14 +390,59 @@ export class GameService {
       where.quality = query.quality;
     }
 
+    const unmatchedCpu: Prisma.GameRequirementWhereInput = {
+      rawCpuText: { not: null },
+      options: {
+        none: {
+          kind: HardwareKind.CPU,
+          cpuId: { not: null },
+        },
+      },
+    };
+    const unmatchedGpu: Prisma.GameRequirementWhereInput = {
+      rawGpuText: { not: null },
+      options: {
+        none: {
+          kind: HardwareKind.GPU,
+          gpuId: { not: null },
+        },
+      },
+    };
+
+    switch (query.reviewStatus) {
+      case 'NEEDS_REVIEW':
+        where.requirements = {
+          some: { options: { some: { needsReview: true } } },
+        };
+        break;
+      case 'UNMATCHED_CPU':
+        where.requirements = { some: unmatchedCpu };
+        break;
+      case 'UNMATCHED_GPU':
+        where.requirements = { some: unmatchedGpu };
+        break;
+      case 'UNMATCHED_ANY':
+        where.OR = [
+          { requirements: { some: unmatchedCpu } },
+          { requirements: { some: unmatchedGpu } },
+        ];
+        break;
+    }
+
     const search = query.q?.trim();
     if (search) {
-      where.OR = [
+      const searchWhere: Prisma.GameWhereInput = {
+        OR: [
         { name: { contains: search, mode: 'insensitive' } },
         { nameFa: { contains: search, mode: 'insensitive' } },
         { slug: { contains: search, mode: 'insensitive' } },
         { developer: { contains: search, mode: 'insensitive' } },
         { publisher: { contains: search, mode: 'insensitive' } },
+        ],
+      };
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        searchWhere,
       ];
     }
 
@@ -200,6 +483,11 @@ export class GameService {
       }
 
       const data = this.toRequirementData(requirement);
+      const {
+        rawCpuText: _rawCpuText,
+        rawGpuText: _rawGpuText,
+        ...updateData
+      } = data;
 
       await this.prisma.gameRequirement.upsert({
         where: {
@@ -212,8 +500,9 @@ export class GameService {
           gameId,
           tier: requirement.tier,
           ...data,
+          sourceName: 'Admin',
         },
-        update: data,
+        update: updateData,
       });
 
       const persisted = await this.prisma.gameRequirement.findUniqueOrThrow({
@@ -268,7 +557,9 @@ export class GameService {
         where: { id: hardwareId },
         select: { id: true },
       });
-      if (!cpu) return;
+      if (!cpu) {
+        throw new BadRequestException(`CPU with id "${hardwareId}" not found`);
+      }
 
       await this.prisma.gameRequirementOption.create({
         data: {
@@ -287,7 +578,9 @@ export class GameService {
       where: { id: hardwareId },
       select: { id: true },
     });
-    if (!gpu) return;
+    if (!gpu) {
+      throw new BadRequestException(`GPU with id "${hardwareId}" not found`);
+    }
 
     await this.prisma.gameRequirementOption.create({
       data: {
@@ -299,6 +592,62 @@ export class GameService {
         needsReview: false,
       },
     });
+  }
+
+  private async validateRequirementHardwareIds(
+    requirements: GameRequirementInputDto[] | undefined,
+  ): Promise<void> {
+    if (!requirements) return;
+
+    const cpuIds = [
+      ...new Set(
+        requirements
+          .map((requirement) => requirement.cpuId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const gpuIds = [
+      ...new Set(
+        requirements
+          .map((requirement) => requirement.gpuId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+
+    await this.validateHardwareIds(cpuIds, gpuIds);
+  }
+
+  private async validateHardwareIds(
+    cpuIds: string[],
+    gpuIds: string[],
+  ): Promise<void> {
+    const [cpus, gpus] = await Promise.all([
+      cpuIds.length
+        ? this.prisma.cpu.findMany({
+            where: { id: { in: cpuIds } },
+            select: { id: true },
+          })
+        : Promise.resolve([]),
+      gpuIds.length
+        ? this.prisma.gpu.findMany({
+            where: { id: { in: gpuIds } },
+            select: { id: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const foundCpuIds = new Set(cpus.map((cpu) => cpu.id));
+    const foundGpuIds = new Set(gpus.map((gpu) => gpu.id));
+    const missingCpuIds = cpuIds.filter((id) => !foundCpuIds.has(id));
+    const missingGpuIds = gpuIds.filter((id) => !foundGpuIds.has(id));
+
+    if (missingCpuIds.length || missingGpuIds.length) {
+      throw new BadRequestException({
+        message: 'Some requirement hardware references do not exist',
+        missingCpuIds,
+        missingGpuIds,
+      });
+    }
   }
 
   private isEditableRequirementTier(
@@ -327,7 +676,7 @@ export class GameService {
 
   private toRequirementData(
     requirement: GameRequirementInputDto,
-  ): Prisma.GameRequirementCreateWithoutGameInput {
+  ): Prisma.GameRequirementUpdateWithoutGameInput {
     return {
       rawCpuText: requirement.rawCpuText?.trim() || null,
       rawGpuText: requirement.rawGpuText?.trim() || null,
@@ -338,7 +687,6 @@ export class GameService {
       directX: requirement.directX?.trim() || null,
       needsSsd: requirement.needsSsd ?? false,
       notes: requirement.notes?.trim() || null,
-      sourceName: 'Admin',
     };
   }
 }

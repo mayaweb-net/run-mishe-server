@@ -3,6 +3,10 @@ import { DataQuality, DemandTier, Prisma, RequirementTier } from '@/app/db/gener
 export type RequirementSummary = {
   cpu: string | null;
   gpu: string | null;
+  cpuLinked: boolean;
+  gpuLinked: boolean;
+  needsReview: boolean;
+  optionCount: number;
   ramGb: number | null;
   vramGb: number | null;
   os: string | null;
@@ -21,6 +25,7 @@ export type GameListItem = {
   steamAppId: number | null;
   popularity: number | null;
   quality: DataQuality;
+  hasConnectionIssue: boolean;
   minimum: RequirementSummary | null;
   recommended: RequirementSummary | null;
 };
@@ -35,8 +40,11 @@ const requirementSelect = {
   storageGb: true,
   options: {
     select: {
+      id: true,
       kind: true,
       matchedText: true,
+      matchScore: true,
+      needsReview: true,
       cpu: { select: { id: true, name: true } },
       gpu: { select: { id: true, name: true } },
     },
@@ -107,8 +115,14 @@ export function mapRequirementSummary(
 ): RequirementSummary | null {
   if (!requirement) return null;
 
-  const cpuOption = requirement.options.find((option) => option.kind === 'CPU');
-  const gpuOption = requirement.options.find((option) => option.kind === 'GPU');
+  const cpuOptions = requirement.options.filter(
+    (option) => option.kind === 'CPU',
+  );
+  const gpuOptions = requirement.options.filter(
+    (option) => option.kind === 'GPU',
+  );
+  const cpuOption = pickPreferredOption(cpuOptions, 'CPU');
+  const gpuOption = pickPreferredOption(gpuOptions, 'GPU');
 
   return {
     cpu:
@@ -121,6 +135,12 @@ export function mapRequirementSummary(
       gpuOption?.matchedText ??
       requirement.rawGpuText ??
       null,
+    cpuLinked: cpuOptions.some((option) => option.cpu != null),
+    gpuLinked: gpuOptions.some((option) => option.gpu != null),
+    needsReview: requirement.options.some((option) => option.needsReview),
+    optionCount: requirement.options.filter(
+      (option) => option.cpu != null || option.gpu != null,
+    ).length,
     ramGb: requirement.ramGb,
     vramGb: requirement.vramGb,
     os: requirement.os,
@@ -138,6 +158,9 @@ export function mapGameListItem(
     (requirement) => requirement.tier === RequirementTier.RECOMMENDED,
   );
 
+  const minimumSummary = mapRequirementSummary(minimum);
+  const recommendedSummary = mapRequirementSummary(recommended);
+
   return {
     id: game.id,
     slug: game.slug,
@@ -151,7 +174,33 @@ export function mapGameListItem(
     steamAppId: game.steamAppId,
     popularity: game.popularity,
     quality: game.quality,
-    minimum: mapRequirementSummary(minimum),
-    recommended: mapRequirementSummary(recommended),
+    hasConnectionIssue: [minimumSummary, recommendedSummary].some(
+      (summary) =>
+        summary?.needsReview ||
+        (summary?.cpu != null && !summary.cpuLinked) ||
+        (summary?.gpu != null && !summary.gpuLinked),
+    ),
+    minimum: minimumSummary,
+    recommended: recommendedSummary,
   };
+}
+
+type RequirementOption = RequirementWithOptions['options'][number];
+
+function pickPreferredOption(
+  options: RequirementOption[],
+  kind: 'CPU' | 'GPU',
+): RequirementOption | undefined {
+  const isResolved = (option: RequirementOption) =>
+    kind === 'CPU' ? option.cpu != null : option.gpu != null;
+
+  return (
+    options.find(
+      (option) =>
+        option.matchedText.startsWith('admin:') && isResolved(option),
+    ) ??
+    [...options]
+      .filter(isResolved)
+      .sort((left, right) => right.matchScore - left.matchScore)[0]
+  );
 }

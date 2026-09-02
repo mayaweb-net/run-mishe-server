@@ -71,6 +71,11 @@ function tokenParts(value: string): string[] {
     return [compactGpuModel[1], compactGpuModel[2]];
   }
 
+  const compactRyzenFamily = /^(ryzen)(\d+)$/.exec(value);
+  if (compactRyzenFamily) {
+    return [compactRyzenFamily[1], compactRyzenFamily[2]];
+  }
+
   return [value];
 }
 

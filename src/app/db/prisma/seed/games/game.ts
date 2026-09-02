@@ -50,6 +50,23 @@ async function syncRequirementOptions(
 
   for (const [kind, text] of fields) {
     const matches = matchRequirementHardware(text, kind, aliases);
+    const hasAdminOverride =
+      (await prisma.gameRequirementOption.count({
+        where: {
+          requirementId,
+          kind,
+          matchedText: { startsWith: 'admin:' },
+        },
+      })) > 0;
+    const unresolvedMatchedText =
+      text && matches.length === 0 && !hasAdminOverride
+        ? `unresolved:${kind}:${text}`
+        : null;
+    const expectedMatchedTexts = [
+      ...matches.map((match) => match.matchedText),
+      ...(unresolvedMatchedText ? [unresolvedMatchedText] : []),
+    ];
+
     if (text) coverage[kind].fieldsWithText += 1;
     if (matches.length > 0) coverage[kind].matchedFields += 1;
     coverage[kind].options += matches.length;
@@ -58,10 +75,11 @@ async function syncRequirementOptions(
       where: {
         requirementId,
         kind,
-        matchedText: {
-          notIn: matches.map((match) => match.matchedText),
-          not: { startsWith: 'legacy:' },
-        },
+        matchedText: { notIn: expectedMatchedTexts },
+        NOT: [
+          { matchedText: { startsWith: 'admin:' } },
+          { matchedText: { startsWith: 'legacy:' } },
+        ],
       },
     });
 
@@ -88,6 +106,31 @@ async function syncRequirementOptions(
           gpuId: match.gpuId,
           matchScore: match.matchScore,
           needsReview: match.needsReview,
+        },
+      });
+    }
+
+    if (unresolvedMatchedText) {
+      await prisma.gameRequirementOption.upsert({
+        where: {
+          requirementId_kind_matchedText: {
+            requirementId,
+            kind,
+            matchedText: unresolvedMatchedText,
+          },
+        },
+        create: {
+          requirementId,
+          kind,
+          matchedText: unresolvedMatchedText,
+          matchScore: 0,
+          needsReview: true,
+        },
+        update: {
+          cpuId: null,
+          gpuId: null,
+          matchScore: 0,
+          needsReview: true,
         },
       });
     }
@@ -136,11 +179,21 @@ export async function seedGames(prisma: PrismaClient): Promise<void> {
       rawPayload: game.steamSnapshot as Prisma.InputJsonValue,
     };
 
+    const existing = await prisma.game.findUnique({
+      where: { steamAppId: game.steamAppId },
+      select: { quality: true },
+    });
+    const isVerified = existing?.quality === DataQuality.VERIFIED;
+
     const persisted = await prisma.game.upsert({
       where: { steamAppId: game.steamAppId },
       create: data,
-      update: data,
+      update: isVerified ? {} : data,
     });
+
+    if (isVerified) {
+      continue;
+    }
 
     const tiers = game.requirements.map(
       (requirement) => RequirementTier[requirement.tier],
