@@ -14,6 +14,11 @@ src/app/modules/hardware/
   cpu.service.ts
   gpu.service.ts
   dto/
+
+src/app/modules/game/
+  game.module.ts
+  game.service.ts
+  dto/
 ```
 
 - Services talk to Prisma and contain all business logic.
@@ -27,6 +32,7 @@ src/app/modules/admin/
   admin.module.ts
   controllers/
     admin.hardware.controller.ts
+    admin.game.controller.ts
 ```
 
 - Admin module **imports** domain modules and exposes admin-only HTTP routes.
