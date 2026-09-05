@@ -10,20 +10,35 @@ import type { SeedVendor } from './types';
  * the same string. `HardwareAlias.alias` stores names in this form.
  */
 export function normalizeHardwareName(value: string): string {
-  return (
-    value
-      // Before NFKD: it would expand "™" into a literal "TM" that then leaks
-      // into the key as if it were part of the product name.
-      .replace(/[®™©]/g, '')
-      .toLowerCase()
-      .normalize('NFKD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/\((?:r|tm|c)\)/g, '')
-      .replace(/\b(?:processor|cpu|gpu|graphics card|series|edition)\b/g, '')
-      .replace(/[^a-z0-9]+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-  );
+  let normalized = value
+    // Before NFKD: it would expand "™" into a literal "TM" that then leaks
+    // into the key as if it were part of the product name.
+    .replace(/[®™©]/g, '')
+    .replace(/\s*@\s*\d+(?:\.\d+)?\s*ghz\b/gi, '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\((?:r|tm|c)\)/g, '')
+    .replace(
+      /\b(?:processor|cpu|gpu|apu|graphics(?:\s+card)?|series|edition)\b/g,
+      '',
+    )
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\bcore2\b/g, 'core 2')
+    .replace(/\b(\d+)\s+gb\b/g, '$1gb')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (/\bryzen\b|\bintel\s+core\b/.test(normalized)) {
+    normalized = normalized.replace(/\s+\d+\s+core$/, '');
+  }
+  if (/^(?:amd|intel)\b/.test(normalized)) {
+    normalized = normalized.replace(
+      /\b(?:dual|triple|quad|six|eight|twelve|sixteen)\s+core\b/g,
+      ' ',
+    );
+  }
+  return normalized.replace(/\s+/g, ' ').trim();
 }
 
 export function slugify(value: string): string {

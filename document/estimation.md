@@ -15,12 +15,12 @@
 
 **GPU** (`category = "gpu-gaming"`):
 
-| بنچمارک | slug | وزن | پوشش |
-| --- | --- | --- | --- |
-| 3DMark Time Spy (Graphics) | `3dmark-time-spy` | 0.30 | DX12، کارت‌های ۲۰۱۶ به بعد |
-| 3DMark Steel Nomad | `3dmark-steel-nomad` | 0.30 | نسل جدید |
-| PassMark G3D Mark | `passmark-g3d` | 0.30 | تقریباً همه‌چیز، از جمله کارت‌های قدیمی |
-| 3DMark Fire Strike (Graphics) | `3dmark-fire-strike` | 0.10 | DX11، پوشش کارت‌های خیلی قدیمی |
+| بنچمارک                       | slug                 | وزن  | پوشش                                    |
+| ----------------------------- | -------------------- | ---- | --------------------------------------- |
+| 3DMark Time Spy (Graphics)    | `3dmark-time-spy`    | 0.30 | DX12، کارت‌های ۲۰۱۶ به بعد              |
+| 3DMark Steel Nomad            | `3dmark-steel-nomad` | 0.30 | نسل جدید                                |
+| PassMark G3D Mark             | `passmark-g3d-mark`  | 0.30 | تقریباً همه‌چیز، از جمله کارت‌های قدیمی |
+| 3DMark Fire Strike (Graphics) | `3dmark-fire-strike` | 0.10 | DX11، پوشش کارت‌های خیلی قدیمی          |
 
 بنچمارک‌های `category = "gpu-compute"` (Geekbench OpenCL/Vulkan، Blender Cycles) با
 `weightInIndex = 0` وارد `gamingIndex` نمی‌شوند و فقط `computeIndex` را می‌سازند — چون یک کارت
@@ -28,12 +28,12 @@ workstation در Blender عالی است ولی در بازی نه.
 
 **CPU:**
 
-| بنچمارک | slug | category | وزن |
-| --- | --- | --- | --- |
-| PassMark Single Thread Rating | `passmark-cpu-single` | `cpu-single` | 0.70 |
-| Geekbench 6 Single-Core | `geekbench6-single` | `cpu-single` | 0.30 |
-| PassMark CPU Mark | `passmark-cpu-multi` | `cpu-multi` | 0.65 |
-| Geekbench 6 Multi-Core | `geekbench6-multi` | `cpu-multi` | 0.35 |
+| بنچمارک                       | slug                     | category     | وزن  |
+| ----------------------------- | ------------------------ | ------------ | ---- |
+| PassMark Single Thread Rating | `passmark-single-thread` | `cpu-single` | 0.70 |
+| Geekbench 6 Single-Core       | `geekbench6-single`      | `cpu-single` | 0.30 |
+| PassMark CPU Mark             | `passmark-cpu-mark`      | `cpu-multi`  | 0.65 |
+| Geekbench 6 Multi-Core        | `geekbench6-multi`       | `cpu-multi`  | 0.35 |
 
 ### فرمول
 
@@ -92,7 +92,7 @@ const fpsGpu = profile.gpuCoef * gpuIndex ** profile.gpuExponent * S;
 const fpsCpu = profile.cpuCoef * cpuIndex ** profile.cpuExponent * C;
 
 // soft-min: نه min خشک، نه میانگین
-const k = profile.blendK;                       // پیش‌فرض ۸
+const k = profile.blendK; // پیش‌فرض ۸
 let fps = (fpsGpu ** -k + fpsCpu ** -k) ** (-1 / k);
 
 fps *= vramPenalty * ramPenalty;
@@ -106,12 +106,12 @@ fps *= vramPenalty * ramPenalty;
 است. با `k = 8`، وقتی `fpsGpu === fpsCpu` خروجی `0.917 ×` آن مقدار می‌شود؛ و هرچه دو سقف از هم
 دورتر شوند خروجی به `min` همگرا می‌شود.
 
-| k | افت در حالت کاملاً متعادل |
-| --- | --- |
-| 4 | ۱۶٪ |
-| 6 | ۱۱٪ |
-| **8** | **۸٪** |
-| 12 | ۶٪ |
+| k     | افت در حالت کاملاً متعادل |
+| ----- | ------------------------- |
+| 4     | ۱۶٪                       |
+| 6     | ۱۱٪                       |
+| **8** | **۸٪**                    |
+| 12    | ۶٪                        |
 
 ---
 
@@ -123,30 +123,30 @@ fps *= vramPenalty * ramPenalty;
 
 ### ضریب رزولوشن (روی preset = HIGH)
 
-| رزولوشن | ضریب |
-| --- | --- |
-| `R720P` | 1.55 |
-| `R1080P` | 1.00 |
-| `R1440P` | 0.66 |
+| رزولوشن               | ضریب |
+| --------------------- | ---- |
+| `R720P`               | 1.55 |
+| `R1080P`              | 1.00 |
+| `R1440P`              | 0.66 |
 | `UW1440P` (3440×1440) | 0.53 |
-| `R2160P` | 0.38 |
+| `R2160P`              | 0.38 |
 | `UW2160P` (5120×2160) | 0.30 |
 
 ### ضریب پریست روی GPU
 
-| پریست | ضریب |
-| --- | --- |
-| `LOW` | 1.45 |
+| پریست    | ضریب |
+| -------- | ---- |
+| `LOW`    | 1.45 |
 | `MEDIUM` | 1.18 |
-| `HIGH` | 1.00 |
-| `ULTRA` | 0.87 |
+| `HIGH`   | 1.00 |
+| `ULTRA`  | 0.87 |
 
 ردیف‌های `DefaultScaling` حاصل‌ضرب این دو هستند: مثلاً `R1440P` + `ULTRA` → `0.66 × 0.87 = 0.574`.
 
 ### ضریب پریست روی CPU
 
 ```ts
-const CPU_PRESET_FACTOR = { LOW: 1.10, MEDIUM: 1.04, HIGH: 1.00, ULTRA: 0.98 };
+const CPU_PRESET_FACTOR = { LOW: 1.1, MEDIUM: 1.04, HIGH: 1.0, ULTRA: 0.98 };
 ```
 
 تنظیمات گرافیکی تقریباً روی CPU اثر ندارند؛ آن مقدار کم هم از سایه‌ها و density مربوط می‌شود.
@@ -154,7 +154,7 @@ const CPU_PRESET_FACTOR = { LOW: 1.10, MEDIUM: 1.04, HIGH: 1.00, ULTRA: 0.98 };
 ### ضریب ray tracing
 
 ```ts
-const RT_FACTOR = 0.55;   // پیش‌فرض عمومی
+const RT_FACTOR = 0.55; // پیش‌فرض عمومی
 ```
 
 این عدد عمداً محافظه‌کارانه است. هزینه‌ی RT شدیداً وابسته به بازی است (سایه‌ی RT در یک بازی ۱۰٪
@@ -165,11 +165,11 @@ const RT_FACTOR = 0.55;   // پیش‌فرض عمومی
 
 بر اساس نسبت رزولوشن رندر:
 
-| Upscaler | رندر | ضریب |
-| --- | --- | --- |
-| `*_QUALITY` | 67٪ | 1.40 |
-| `*_BALANCED` | 58٪ | 1.55 |
-| `*_PERFORMANCE` | 50٪ | 1.75 |
+| Upscaler        | رندر | ضریب |
+| --------------- | ---- | ---- |
+| `*_QUALITY`     | 67٪  | 1.40 |
+| `*_BALANCED`    | 58٪  | 1.55 |
+| `*_PERFORMANCE` | 50٪  | 1.75 |
 
 DLSS و FSR و XeSS از نظر کارایی تقریباً یکی هستند؛ تفاوتشان کیفیت تصویر است.
 **قبل از اعمال، پشتیبانی کارت را چک کن** (`Gpu.dlssVersion` / `fsrVersion` / `supportsXess`) و اگر
@@ -184,7 +184,8 @@ Frame generation عمداً در ضریب FPS دخالت داده نمی‌شو�
 
 ```ts
 const vramRatio = gpu.vramGb / need(resolution, preset);
-const vramPenalty = vramRatio >= 1 ? 1 : clamp(0.35 + 0.65 * vramRatio, 0.35, 1);
+const vramPenalty =
+  vramRatio >= 1 ? 1 : clamp(0.35 + 0.65 * vramRatio, 0.35, 1);
 
 const ramRatio = input.ramGb / profile.ramNeedGb;
 const ramPenalty = ramRatio >= 1 ? 1 : clamp(0.5 + 0.5 * ramRatio, 0.5, 1);
@@ -193,12 +194,12 @@ const ramPenalty = ramRatio >= 1 ? 1 : clamp(0.5 + 0.5 * ramRatio, 0.5, 1);
 `need` از `GameProfile.vramNeedGb` می‌آید. مقدار پیش‌فرض بر حسب `DemandTier` وقتی بازی پروفایل
 کالیبره ندارد:
 
-| tier | 1080p HIGH | 1440p HIGH | 4K HIGH | 4K ULTRA |
-| --- | --- | --- | --- | --- |
-| `LIGHT` | 3 | 4 | 5 | 6 |
-| `MEDIUM` | 5 | 6 | 8 | 9 |
-| `HEAVY` | 7 | 8 | 10 | 12 |
-| `EXTREME` | 9 | 11 | 13 | 16 |
+| tier      | 1080p HIGH | 1440p HIGH | 4K HIGH | 4K ULTRA |
+| --------- | ---------- | ---------- | ------- | -------- |
+| `LIGHT`   | 3          | 4          | 5       | 6        |
+| `MEDIUM`  | 5          | 6          | 8       | 9        |
+| `HEAVY`   | 7          | 8          | 10      | 12       |
+| `EXTREME` | 9          | 11         | 13      | 16       |
 
 `ramNeedGb` پیش‌فرض: `LIGHT` 8، `MEDIUM` 12، `HEAVY` 16، `EXTREME` 24.
 
@@ -211,8 +212,8 @@ const ramPenalty = ramRatio >= 1 ? 1 : clamp(0.5 + 0.5 * ramRatio, 0.5, 1);
 
 ```ts
 const cpuHeadroom = clamp(fpsCpu / fpsGpu - 1, 0, 1);
-let lowRatio = 0.58 + 0.18 * cpuHeadroom;      // 0.58 .. 0.76
-if (vramRatio < 1) lowRatio *= 0.85;           // کمبود VRAM اول lows را می‌زند
+let lowRatio = 0.58 + 0.18 * cpuHeadroom; // 0.58 .. 0.76
+if (vramRatio < 1) lowRatio *= 0.85; // کمبود VRAM اول lows را می‌زند
 const onePercentLow = fps * lowRatio;
 ```
 
@@ -227,15 +228,18 @@ const onePercentLow = fps * lowRatio;
 
 ```ts
 const limiting = fpsCpu < fpsGpu ? 'CPU' : 'GPU';
-const severity = ((Math.max(fpsGpu, fpsCpu) - Math.min(fpsGpu, fpsCpu)) / Math.max(fpsGpu, fpsCpu)) * 100;
+const severity =
+  ((Math.max(fpsGpu, fpsCpu) - Math.min(fpsGpu, fpsCpu)) /
+    Math.max(fpsGpu, fpsCpu)) *
+  100;
 ```
 
-| درصد | برچسب |
-| --- | --- |
-| < ۱۰ | متعادل |
-| ۱۰ تا ۲۵ | گلوگاه خفیف |
+| درصد     | برچسب            |
+| -------- | ---------------- |
+| < ۱۰     | متعادل           |
+| ۱۰ تا ۲۵ | گلوگاه خفیف      |
 | ۲۵ تا ۴۵ | گلوگاه قابل‌توجه |
-| > ۴۵ | گلوگاه شدید |
+| > ۴۵     | گلوگاه شدید      |
 
 **نکته‌ی محصولی:** خروجی را برای هر چهار رزولوشن با هم بده. چون `fpsCpu` ثابت است و `fpsGpu` با
 رزولوشن پایین می‌آید، جدول نشان می‌دهد گلوگاه از CPU به GPU جابه‌جا می‌شود — و این دقیقاً همان
@@ -250,10 +254,10 @@ const severity = ((Math.max(fpsGpu, fpsCpu) - Math.min(fpsGpu, fpsCpu)) / Math.m
 
 ```ts
 const COLD_START: Record<DemandTier, Omit<Coefficients, 'blendK'>> = {
-  LIGHT:   { gpuCoef: 28.5, gpuExponent: 0.75, cpuCoef: 7.0, cpuExponent: 1.0 },
-  MEDIUM:  { gpuCoef:  8.75, gpuExponent: 0.82, cpuCoef: 3.0, cpuExponent: 1.0 },
-  HEAVY:   { gpuCoef:  3.83, gpuExponent: 0.88, cpuCoef: 1.8, cpuExponent: 1.0 },
-  EXTREME: { gpuCoef:  2.02, gpuExponent: 0.92, cpuCoef: 1.3, cpuExponent: 1.0 },
+  LIGHT: { gpuCoef: 28.5, gpuExponent: 0.75, cpuCoef: 7.0, cpuExponent: 1.0 },
+  MEDIUM: { gpuCoef: 8.75, gpuExponent: 0.82, cpuCoef: 3.0, cpuExponent: 1.0 },
+  HEAVY: { gpuCoef: 3.83, gpuExponent: 0.88, cpuCoef: 1.8, cpuExponent: 1.0 },
+  EXTREME: { gpuCoef: 2.02, gpuExponent: 0.92, cpuCoef: 1.3, cpuExponent: 1.0 },
 };
 ```
 
@@ -267,12 +271,12 @@ const COLD_START: Record<DemandTier, Omit<Coefficients, 'blendK'>> = {
 
 از `gamingIndex` سخت‌افزار توصیه‌شده در `GameRequirement(tier = RECOMMENDED)`:
 
-| بیشترین `gamingIndex` بین GPU های recommended | tier |
-| --- | --- |
-| < 8 | `LIGHT` |
-| 8 تا 18 | `MEDIUM` |
-| 18 تا 32 | `HEAVY` |
-| ≥ 32 | `EXTREME` |
+| بیشترین `gamingIndex` بین GPU های recommended | tier      |
+| --------------------------------------------- | --------- |
+| < 8                                           | `LIGHT`   |
+| 8 تا 18                                       | `MEDIUM`  |
+| 18 تا 32                                      | `HEAVY`   |
+| ≥ 32                                          | `EXTREME` |
 
 بعد از ingest، ۵۰ بازی محبوب را دستی مرور کن — تولیدکننده‌ها گاهی requirement را غیرواقعی
 می‌نویسند.
@@ -299,11 +303,11 @@ job ای که برای هر بازی با نمونه‌ی کافی اجرا می
 
 ### حداقل دیتای لازم
 
-| چیزی که fit می‌شود | حداقل |
-| --- | --- |
-| منحنی GPU | ۶ نمونه روی حداقل ۴ GPU متمایز |
-| منحنی CPU | ۴ نمونه روی حداقل ۳ CPU متمایز |
-| یک ردیف `GameScaling` | ۳ نمونه در همان سطل |
+| چیزی که fit می‌شود    | حداقل                          |
+| --------------------- | ------------------------------ |
+| منحنی GPU             | ۶ نمونه روی حداقل ۴ GPU متمایز |
+| منحنی CPU             | ۴ نمونه روی حداقل ۳ CPU متمایز |
+| یک ردیف `GameScaling` | ۳ نمونه در همان سطل            |
 
 هر چیزی که به حد نصاب نرسد، مقدار cold-start خودش را نگه می‌دارد. `isCalibrated` فقط وقتی `true`
 می‌شود که منحنی GPU fit شده باشد.
@@ -323,17 +327,21 @@ ln(fps) = ln(coef) + exponent · ln(index)
 `DefaultScaling`):
 
 ```ts
-const y = sample.avgFps / scaling(sample.resolution, sample.preset, sample.upscaler, sample.rayTracing);
+const y =
+  sample.avgFps /
+  scaling(sample.resolution, sample.preset, sample.upscaler, sample.rayTracing);
 const x = gpu.gamingIndex;
 ```
 
 **گام ۳ — weighted OLS.** وزن هر نمونه `confidence` آن است:
 
 ```ts
-const X = Math.log(x), Y = Math.log(y), w = sample.confidence;
+const X = Math.log(x),
+  Y = Math.log(y),
+  w = sample.confidence;
 // جمع‌ها روی همه‌ی نمونه‌ها
-const b = (Sw * Sxy - Sx * Sy) / (Sw * Sxx - Sx * Sx);   // exponent
-const a = (Sy - b * Sx) / Sw;                            // ln(coef)
+const b = (Sw * Sxy - Sx * Sy) / (Sw * Sxx - Sx * Sx); // exponent
+const a = (Sy - b * Sx) / Sw; // ln(coef)
 
 profile.gpuExponent = clamp(b, 0.6, 1.15);
 profile.gpuCoef = Math.exp(a);
@@ -363,11 +371,11 @@ multiplier = weightedMean(sample.avgFps / predictedReferenceFps(sample));
 
 قبل از نوشتن نتیجه، ۲۰٪ نمونه‌ها را کنار بگذار و روی همان‌ها بسنج:
 
-| معیار | هدف |
-| --- | --- |
-| MAPE | < ۱۵٪ |
-| صدک ۹۰ خطای مطلق درصدی | < ۲۵٪ |
-| یکنواختی | با ثابت‌بودن بقیه‌ی ورودی‌ها، `gpuIndex` بیشتر نباید FPS کمتر بدهد |
+| معیار                  | هدف                                                                |
+| ---------------------- | ------------------------------------------------------------------ |
+| MAPE                   | < ۱۵٪                                                              |
+| صدک ۹۰ خطای مطلق درصدی | < ۲۵٪                                                              |
+| یکنواختی               | با ثابت‌بودن بقیه‌ی ورودی‌ها، `gpuIndex` بیشتر نباید FPS کمتر بدهد |
 
 اگر MAPE بدتر از cold-start همان tier شد، **نتیجه را ننویس** و بازی را برای بازبینی flag کن —
 تقریباً همیشه یعنی یکی از نمونه‌ها به سخت‌افزار اشتباه match شده.
@@ -400,21 +408,21 @@ export interface EstimateInput {
   preset: QualityPreset;
   upscaler: Upscaler;
   rayTracing: boolean;
-  profile: Coefficients;      // از GameProfile یا cold-start
-  scaling: number;            // از GameScaling یا DefaultScaling
+  profile: Coefficients; // از GameProfile یا cold-start
+  scaling: number; // از GameScaling یا DefaultScaling
   vramNeedGb: number;
 }
 
 export interface EstimateOutput {
   fps: number;
   onePercentLow: number;
-  fpsGpu: number;             // سقف GPU، قبل از blend — ورودی محاسبه‌گر گلوگاه
-  fpsCpu: number;             // سقف CPU
+  fpsGpu: number; // سقف GPU، قبل از blend — ورودی محاسبه‌گر گلوگاه
+  fpsCpu: number; // سقف CPU
   limitedBy: 'CPU' | 'GPU';
   bottleneckPercent: number;
   vramPenalty: number;
   ramPenalty: number;
-  confidence: 'high' | 'medium' | 'low';   // از isCalibrated و rSquared و sampleCount
+  confidence: 'high' | 'medium' | 'low'; // از isCalibrated و rSquared و sampleCount
 }
 ```
 
@@ -431,11 +439,11 @@ TTL = ۲۴ ساعت
 
 ### `confidence` که به کاربر نشان می‌دهی
 
-| شرط | برچسب |
-| --- | --- |
-| `isCalibrated && rSquared > 0.9 && sampleCount >= 15` | بالا |
-| `isCalibrated` | متوسط |
-| در غیر این صورت (cold-start) | تخمینی |
+| شرط                                                   | برچسب  |
+| ----------------------------------------------------- | ------ |
+| `isCalibrated && rSquared > 0.9 && sampleCount >= 15` | بالا   |
+| `isCalibrated`                                        | متوسط  |
+| در غیر این صورت (cold-start)                          | تخمینی |
 
 این را حتماً در UI بیاور. تخمین اشتباه با برچسب «تخمینی» قابل بخشش است؛ همان تخمین بدون برچسب،
 اعتماد کاربر را می‌سوزاند.
