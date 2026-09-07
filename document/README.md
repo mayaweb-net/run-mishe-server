@@ -95,29 +95,39 @@ limitingComponent = fpsCpu < fpsGpu ? "CPU" : "GPU"
 
 ## وضعیت فعلی
 
+**الان کجایی:** وسط فاز ۱ (کاتالوگ + بنچمارک). کاتالوگ GPU/CPU/بازی آماده است.
+PassMark crawl شده، ولی هنوز به DB import نشده و `Cpu.gamingIndex` خالی است.
+فاز ۳ («ران میشه؟») هنوز شروع نشده.
+
+جزئیات فازها: [`roadmap.md`](./roadmap.md)
+
 - [x] اسکیما نوشته و با `prisma validate` تأیید شده
 - [x] migration اولیه در `src/app/db/prisma/migrations/20260830182000_init`
 - [x] مسیر seed در `prisma.config.ts` اصلاح شد
-- [x] کاتالوگ سخت‌افزار: ۲۵۰ GPU و ۲۵۰ CPU، seed شده و روی Postgres واقعی تست شده
+- [x] کاتالوگ سخت‌افزار: ۲۵۰ GPU و ۲۸۶ CPU، seed شده و روی Postgres واقعی تست شده
 - [x] `Gpu.gamingIndex` برای هر ۲۵۰ کارت پر است (از شاخص GPU Ark)
 - [x] کاتالوگ بازی: ۲۳۴ بازی محبوب Steam Charts + requirementهای Steam Store
 - [x] matching دقیق CPU/GPU روی متن requirement → `GameRequirementOption`
+      (پوشش آفلاین تقریبی: CPU ~۸۴٪، GPU ~۸۸٪ فیلدهای دارای متن)
+- [x] پایپلاین مستقل PassMark: crawl → JSONL → importer (`pnpm crawler:cpu` / `crawler:gpu` / `import:benchmarks`)
+- [ ] import اسکورهای PassMark به DB و job محاسبه‌ی `Cpu.gamingIndex`
 - [ ] اکستنشن‌های `pg_trgm` / `unaccent` و ایندکس‌های سرچ فازی (SQL دستی)
-- [ ] `Cpu.gamingIndex` — **هنوز خالی است**، منبع بنچمارک CPU لازم داریم
-- [ ] seed جدول‌های ثابت (`DefaultScaling` و بقیه‌ی `Benchmark` ها)
+- [ ] seed جدول‌های ثابت (`DefaultScaling`؛ تعریف‌های PassMark/Time Spy در seed هست ولی باید روی DB اجرا شود)
 - [ ] محاسبه‌ی `Game.demandTier` از روی سخت‌افزار recommended
-- [ ] موتور تخمین
-- [x] ماژول‌های Nest: `hardware` (services) + `admin` (controllers)
+- [ ] موتور تخمین / «ران میشه؟»
+- [x] ماژول‌های Nest: `hardware` + `game` (services) + `admin` (controllers)
+- [x] ماژول `benchmark` (کراولر/ایمپورتر مستقل از Nest runtime)
 
 ## معماری ماژول‌های Nest
 
 ```
 src/app/modules/
   hardware/          ← سرویس‌های دامنه (cpu.service, gpu.service, …)
-  admin/             ← فقط کنترلرهای ادمین (admin.hardware.controller, …)
-  <domain>/          ← در آینده: games, auth, …
+  game/              ← سرویس بازی
+  admin/             ← فقط کنترلرهای ادمین
+  benchmark/         ← کراولر/ایمپورتر مستقل (CLI)، نه runtime محصول
+  <domain>/          ← در آینده: auth, estimation, …
 ```
-
 **قانون:** سرویس‌ها مشترک بین ادمین و کلاینت هستند. کنترلر ادمین فقط route و guard دارد و
 به سرویس دامنه وصل می‌شود. `AdminCpuService` نساز.
 
@@ -144,4 +154,9 @@ pnpm prisma:studio
 # اعتبارسنجی آفلاین، بدون دیتابیس
 pnpm exec tsx src/app/db/prisma/seed/hardware/verify.ts
 pnpm exec tsx src/app/db/prisma/seed/games/verify-requirements.ts
+
+# بنچمارک PassMark (جزئیات: scripts/benchmarks/README.md)
+pnpm crawler:cpu -- --source passmark
+pnpm crawler:gpu -- --source passmark
+pnpm import:benchmarks
 ```

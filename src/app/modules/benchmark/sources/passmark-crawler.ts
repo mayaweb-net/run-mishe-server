@@ -124,6 +124,55 @@ export function assignDefaultVramGpuMatches(
   }
 }
 
+/**
+ * PassMark sometimes publishes one score for several near-identical chips.
+ * Explicit allowlist only — never invent slash combinations.
+ */
+export function assignCombinedGpuMatches(
+  catalog: readonly CatalogHardware[],
+  sourceRecords: readonly RawBenchmarkRecord[],
+  resolved: Map<string, RawBenchmarkRecord>,
+): void {
+  const rules: Array<{
+    sourcePattern: RegExp;
+    catalogSlugs: readonly string[];
+  }> = [
+    {
+      sourcePattern: /^radeon rx 470\/570$/i,
+      catalogSlugs: ['amd-radeon-rx-470', 'amd-radeon-rx-570'],
+    },
+    {
+      sourcePattern: /^radeon hd 7970\s*\/\s*r9 280x$/i,
+      catalogSlugs: ['amd-radeon-hd-7970'],
+    },
+  ];
+
+  const bySlug = new Map(catalog.map((row) => [row.slug, row]));
+  for (const record of sourceRecords) {
+    if (record.benchmark !== 'passmark-g3d-mark') continue;
+    for (const rule of rules) {
+      if (!rule.sourcePattern.test(record.hardwareName.trim())) continue;
+      for (const slug of rule.catalogSlugs) {
+        const hardware = bySlug.get(slug);
+        if (!hardware) continue;
+        const key = `${slug}:passmark-g3d-mark`;
+        if (resolved.has(key)) continue;
+        resolved.set(key, {
+          ...record,
+          hardwareName: hardware.name,
+          rawPayload: {
+            ...(record.rawPayload && typeof record.rawPayload === 'object'
+              ? record.rawPayload
+              : {}),
+            passmarkHardwareName: record.hardwareName,
+            matchedBy: 'combined-passmark',
+          },
+        });
+      }
+    }
+  }
+}
+
 function cpuDetailQueries(name: string): string[] {
   return [
     ...new Set([
@@ -144,8 +193,10 @@ function gpuDetailQueries(name: string): string[] {
       stripped.replace(/\s+Max-Q$/i, ' with Max-Q Design'),
       stripped.replace(/\s+Mobile$/i, ' (Mobile)'),
       stripped.replace(/\s+Mobile$/i, ' Laptop GPU'),
+      `${stripped} Laptop GPU`,
       stripped.replace(/\s+\d+\s*GB$/i, ''),
       stripped.replace(/\s+(?:Limited|Founders)(?:\s+Edition)?\b/gi, ''),
+      stripped.replace(/\s+TiM$/i, ' Ti Laptop GPU'),
     ]),
   ].filter(Boolean);
 }
@@ -220,6 +271,7 @@ export class PassMarkCrawler implements BenchmarkCrawler {
       const resolver = new HardwareResolver(catalog, 'GPU');
       const resolved = resolvedRecordMap(records, resolver);
       assignDefaultVramGpuMatches(catalog, records, resolved);
+      assignCombinedGpuMatches(catalog, records, resolved);
       await this.enrichGpuDetails(catalog, resolver, resolved, errors);
       return {
         source: this.source,

@@ -36,6 +36,13 @@ const CPU_SERIES_ALIASES: Record<string, string[]> = {
   ],
   'intel-core-2-duo-e8400': ['Core 2 Duo', 'Intel Core 2 Duo'],
   'amd-phenom-x3-8650': ['AMD Phenom X3 8650'],
+  'amd-fx-8370e': ['AMD FX FX 8370E', 'FX FX 8370E'],
+  'amd-a10-7860k': ['AMD A 10 7860k', 'A 10 7860k'],
+  'intel-core-i7-9700f': [
+    'Intel Core i7-9700F OEM',
+    'Intel Core i7-9700F OEM /',
+    'i7-9700F OEM',
+  ],
 };
 
 interface PreparedCpu {

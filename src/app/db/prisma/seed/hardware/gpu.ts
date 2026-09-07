@@ -36,7 +36,7 @@ const GPU_MODEL_TOKEN =
   /\b((?:RTX|GTX|GT|GTS|RX|HD|R[79])\s+[A-Za-z0-9]+(?:\s+(?:Ti|SUPER|XT|XTX|GRE))*(?:\s+\d+\s*GB)?|\d{3,4}\s+GT)\b/i;
 
 /** Steam often names a whole family; map to one catalogue SKU for matching. */
-const GPU_SERIES_ALIASES: Record<string, string[]> = {
+export const GPU_SERIES_ALIASES: Record<string, string[]> = {
   'nvidia-geforce-gtx-660': [
     'GTX 600 series',
     'GeForce GTX 600 series',
@@ -57,23 +57,78 @@ const GPU_SERIES_ALIASES: Record<string, string[]> = {
   'nvidia-geforce-9600-gt': ['9600 GT', '9600GT'],
   'nvidia-geforce-8600-gt': ['8600', '9600GT'],
   'amd-radeon-hd-6870': ['HD 7000 series', 'AMD Radeon HD 7000 series'],
-  'amd-radeon-hd-7970': ['AMD 7970', 'nVidia 770'],
+  'amd-radeon-hd-7970': [
+    'AMD 7970',
+    'nVidia 770',
+    'Radeon HD 7970 / R9 280X',
+    'HD 7970 / R9 280X',
+  ],
   'amd-radeon-hd-5570': ['5570', 'AMD 5570'],
   'amd-radeon-hd-5450': ['5450', 'HD5450'],
   'nvidia-geforce-gts-450': ['450', 'nVidia 450'],
   'nvidia-geforce-6600': ['6600', 'NVidia 6600'],
   'amd-radeon-x1300': ['X1300', 'ATI X1300'],
+  'amd-radeon-rx-6900-xt': [
+    'AMD Radeon RX 6900 XT Halo Infinite',
+    'Radeon RX 6900 XT Halo Infinite',
+    'AMD Radeon RX 6900 XT LC',
+    'Radeon RX 6900 XT LC',
+    'AMD Radeon RX 6900 XTX',
+    'Radeon RX 6900 XTX',
+  ],
+  'amd-radeon-rx-6800-xt': [
+    'AMD Radeon RX 6800 XT Midnight Black',
+    'Radeon RX 6800 XT Midnight Black',
+  ],
+  'nvidia-geforce-rtx-2080-ti': [
+    'NVIDIA GeForce RTX 2080 Ti Cyberpunk 2077',
+    'GeForce RTX 2080 Ti Cyberpunk 2077',
+  ],
+  'intel-arc-a770': [
+    'Intel Arc A770 Limited Edition 16 GB',
+    'Arc A770 Limited Edition 16 GB',
+  ],
+  'nvidia-geforce-rtx-2060-12-gb': [
+    'NVIDIA GeForce RTX 2060 Founders Edition 12 GB',
+    'GeForce RTX 2060 Founders Edition 12 GB',
+  ],
+  'amd-radeon-rx-vega-64': [
+    'AMD Radeon RX Vega 64 Limited Edition LTX2017',
+    'Radeon RX Vega 64 Limited Edition LTX2017',
+  ],
+  'nvidia-geforce-gtx-1080': [
+    'NVIDIA GeForce GTX 1080 11Gbps',
+    'GeForce GTX 1080 11Gbps',
+  ],
+  'nvidia-geforce-rtx-2060-mobile': [
+    'NVIDIA GeForce RTX 2060 Mobile with AMD CPUs',
+    'GeForce RTX 2060 Mobile with AMD CPUs',
+  ],
+  'nvidia-geforce-rtx-3050-4-gb': [
+    'GeForce RTX 3050 4GB Laptop GPU',
+    'RTX 3050 4GB Laptop GPU',
+    'NVIDIA GeForce RTX 3050 4GB Laptop GPU',
+  ],
+  'nvidia-geforce-rtx-4050-mobile': [
+    'NVIDIA GeForce RTX 4050',
+    'GeForce RTX 4050',
+    'RTX 4050',
+  ],
+  'nvidia-geforce-rtx-3070-ti-mobile': [
+    'NVIDIA GeForce RTX 3070 TiM',
+    'GeForce RTX 3070 TiM',
+    'RTX 3070 TiM',
+  ],
 };
 
 function gpuAliasVariants(gpu: GpuSeed): string[] {
-  const token = GPU_MODEL_TOKEN.exec(gpu.name)?.[1];
-  if (!token) {
-    const seriesAliases = GPU_SERIES_ALIASES[gpu.slug];
-    return seriesAliases ? [...seriesAliases] : [];
-  }
+  const seriesAliases = GPU_SERIES_ALIASES[gpu.slug] ?? [];
+  // A laptop chip must never answer to the plain desktop model name, but it
+  // may still need explicit PassMark/Steam spellings from GPU_SERIES_ALIASES.
+  if (gpu.formFactor === 'LAPTOP') return [...seriesAliases];
 
-  // A laptop chip must never answer to the plain desktop model name.
-  if (gpu.formFactor === 'LAPTOP') return [];
+  const token = GPU_MODEL_TOKEN.exec(gpu.name)?.[1];
+  if (!token) return [...seriesAliases];
 
   // Steam often omits or disagrees on VRAM while still naming the same model.
   const modelOnlyToken = token.replace(/\s+\d+\s*GB$/i, '').trim();
@@ -99,11 +154,7 @@ function gpuAliasVariants(gpu: GpuSeed): string[] {
     variants.push(`${gtMatch[1]} ${gtMatch[2]}`);
   }
 
-  const seriesAliases = GPU_SERIES_ALIASES[gpu.slug];
-  if (seriesAliases) {
-    variants.push(...seriesAliases);
-  }
-
+  variants.push(...seriesAliases);
   return [...new Set(variants)];
 }
 

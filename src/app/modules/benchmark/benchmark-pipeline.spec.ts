@@ -48,10 +48,11 @@ describe('hardware name normalization and matching', () => {
     },
     {
       id: 'cpu-fx-8370e',
-      slug: 'amd-fx-fx-8370e',
-      normalizedName: normalizeHardwareName('AMD FX FX 8370E'),
-      name: 'AMD FX FX 8370E',
+      slug: 'amd-fx-8370e',
+      normalizedName: normalizeHardwareName('AMD FX-8370E'),
+      name: 'AMD FX-8370E',
       target: 'CPU',
+      aliases: ['AMD FX FX 8370E', 'FX FX 8370E'],
     },
     {
       id: 'cpu-a10-6800b',
@@ -200,6 +201,48 @@ describe('default VRAM PassMark GPU assignment', () => {
     expect(
       resolved.get('nvidia-geforce-rtx-4060-ti-8-gb:passmark-g3d-mark')?.score,
     ).toBe(20000);
+  });
+});
+
+describe('combined PassMark GPU assignment', () => {
+  it('assigns a combined PassMark SKU to every allowlisted catalog chip', async () => {
+    const { assignCombinedGpuMatches } = await import(
+      './sources/passmark-crawler'
+    );
+    const catalog = [
+      {
+        slug: 'amd-radeon-rx-470',
+        normalizedName: normalizeHardwareName('AMD Radeon RX 470'),
+        name: 'AMD Radeon RX 470',
+        target: 'GPU' as const,
+      },
+      {
+        slug: 'amd-radeon-rx-570',
+        normalizedName: normalizeHardwareName('AMD Radeon RX 570'),
+        name: 'AMD Radeon RX 570',
+        target: 'GPU' as const,
+      },
+    ];
+    const combined = {
+      source: 'passmark' as const,
+      benchmark: 'passmark-g3d-mark' as const,
+      sourceUrl,
+      capturedAt,
+      hardwareName: 'Radeon RX 470/570',
+      score: 7909,
+      unit: 'points',
+    };
+    const resolved = new Map<string, typeof combined>();
+    assignCombinedGpuMatches(catalog, [combined], resolved);
+    expect(
+      resolved.get('amd-radeon-rx-470:passmark-g3d-mark')?.hardwareName,
+    ).toBe('AMD Radeon RX 470');
+    expect(
+      resolved.get('amd-radeon-rx-570:passmark-g3d-mark')?.hardwareName,
+    ).toBe('AMD Radeon RX 570');
+    expect(resolved.get('amd-radeon-rx-470:passmark-g3d-mark')?.score).toBe(
+      7909,
+    );
   });
 });
 

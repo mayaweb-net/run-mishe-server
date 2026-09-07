@@ -3,13 +3,31 @@
 تخمین‌های زمانی برای یک نفر تمام‌وقت است. هر فاز یک «تعریف تمام‌شده» دارد که قابل دمو باشد —
 عمداً طوری چیده شده که از فاز ۳ به بعد در هر فاز چیزی قابل انتشار داشته باشی.
 
-## وضعیت شروع
+## وضعیت شروع (به‌روز سپتامبر ۲۰۲۶)
 
 | بخش | وضعیت |
 | --- | --- |
-| `run-mishe-server` | اسکلت NestJS + Fastify + Prisma + Postgres + Redis. فقط مدل `User`. `src/app/modules/` خالی است |
-| `run-mishe-client` | Next 16، سه صفحه (`/`, `/review`, `/fps`)، همه از mock در `src/config/*.ts` تغذیه می‌شوند. هیچ لایه‌ی fetch ای وجود ندارد |
-| `run-mishe-admin` | React + Vite، لایه‌ی UI در حال ساخت |
+| `run-mishe-server` | NestJS + Fastify + Prisma + Postgres + Redis. ماژول‌های `hardware` / `game` / `admin` / `benchmark` فعال‌اند |
+| `run-mishe-client` | Next، صفحات `/` و `/review` و `/fps` هنوز عمدتاً از mock تغذیه‌اند |
+| `run-mishe-admin` | لیست CPU / GPU / Game از API ادمین |
+
+### پیشرفت تقریبی نسبت به کل نقشه راه تا فاز ۳ (اولین انتشار)
+
+| فاز | درصد تقریبی | یادداشت |
+| --- | ---: | --- |
+| ۰ پایه‌ی دیتا | ~۷۰٪ | اسکیما و seed هست؛ trigram و public search و DefaultScaling مانده |
+| ۱ کاتالوگ سخت‌افزار | ~۸۰٪ | کاتالوگ کامل؛ PassMark crawl شده؛ **import + `Cpu.gamingIndex` مانده** |
+| ۲ کاتالوگ بازی | ~۸۵٪ | ۲۳۴ بازی + matching خوب؛ `demandTier` مانده |
+| ۳ «ران میشه؟» | ۰٪ | هنوز شروع نشده |
+| ۴+ | ۰٪ | بعد از فاز ۳ |
+
+**جمع تا اولین فیچر قابل انتشار (فاز ۳):** حدود **۵۵–۶۰٪** مسیر دیتا/زیرساخت؛ خود محصول هنوز ۰٪.
+
+**قدم بعدی پیشنهادی (به ترتیب):**
+1. `pnpm import:benchmarks` برای ریختن PassMark JSONL به DB
+2. job محاسبه‌ی `Cpu.gamingIndex` از CPU Mark (+ وزن‌دهی)
+3. seed `DefaultScaling` + اطمینان از تعریف‌های `Benchmark` روی DB
+4. شروع فاز ۳: `POST /run-check` (حتی با GPU-only تا CPU index کامل شود، اگر لازم بود موقت)
 
 ---
 
@@ -18,11 +36,11 @@
 - [x] نوشتن مدل‌های Prisma
 - [x] رفع ناهماهنگی مسیر seed در `prisma.config.ts` (به `seed/seed.ts` اشاره می‌کند)
 - [x] migration اولیه (`20260830182000_init`)
+- [x] ماژول‌های دامنه `hardware` / `game` + کنترلر ادمین (لیست با pagination/search ساده)
 - [ ] افزودن SQL دستی از [`data-model.md`](./data-model.md#چیزهایی-که-باید-دستی-به-migration-اضافه-شوند)
       (`pg_trgm` / `unaccent` و ایندکس‌های سرچ) به migration بعدی
-- [ ] seed جدول‌های ثابت: بقیه‌ی `Benchmark` ها، `DefaultScaling` (۲۴ ردیف)
-- [ ] ماژول `hardware`: سرچ trigram روی `HardwareAlias`
-- [ ] ماژول `games`: سرچ trigram
+- [ ] seed جدول‌های ثابت: `DefaultScaling` (۲۴ ردیف)
+- [ ] API عمومی سرچ: `GET /hardware/*` و `GET /games` با trigram
 
 **تمام‌شده وقتی:** `GET /hardware/gpus?q=3060` و `GET /games?q=cyber` جواب درست می‌دهند.
 
@@ -31,23 +49,28 @@
 ## فاز ۱ — کاتالوگ سخت‌افزار · ~۱ تا ۲ هفته
 
 - [x] کاتالوگ ۲۵۰ GPU (۱۷۹ دسکتاپ + ۷۱ لپ‌تاپ) با مشخصات کامل
-- [x] کاتالوگ ۲۵۰ CPU دسکتاپ با مشخصات کامل
-- [x] تولید alias (۶۳۸ برای GPU، ۷۹۰ برای CPU) بدون هیچ برخوردی
+- [x] کاتالوگ ۲۸۶ CPU دسکتاپ با مشخصات کامل
+- [x] تولید alias (بدون برخورد؛ حدود ۸۶۴ GPU و ۹۳۱ CPU در verify فعلی)
 - [x] `Gpu.gamingIndex` از شاخص GPU Ark، ذخیره‌شده در `GpuBenchmarkScore` تا بازتولیدپذیر بماند
-- [ ] **منبع بنچمارک CPU** — بلاک‌کننده‌ی `Cpu.gamingIndex`، جزئیات در
+- [x] پایپلاین PassMark (crawl + JSONL + importer + matching محافظه‌کارانه)
+      — پوشش تقریبی crawl: CPU تقریباً کامل، GPU ~۸۷٪ (باقی‌مانده عمدتاً Max-Q/Mobile بدون صفحه جدا)
+- [x] تمیزکاری catalog: merge editionهای نادر + alias؛ حذف GPUهای عرضه‌نشده
+- [ ] **import اسکور PassMark به DB** (`pnpm import:benchmarks`) — الان JSONL هست، جدول اسکور هنوز خالی است
+- [ ] **`Cpu.gamingIndex` از PassMark CPU Mark** — جزئیات در
       [`data-sources.md`](./data-sources.md#شکاف-باز-cpugamingindex)
 - [ ] `hardware-index.job.ts` — بازمحاسبه‌ی `gamingIndex` از روی `*BenchmarkScore`
 - [ ] رگرسیون fallback برای قطعات بدون بنچمارک (`quality = ESTIMATED`)
+- [ ] 3DMark Time Spy: فقط تعریف رزرو شده؛ منبع per-GPU تنظیم نشده (عمدی)
 
 **تمام‌شده وقتی:** بیش از ۸۵٪ GPU ها و CPU ها `gamingIndex` دارند، و مرتب‌سازی بر اساس آن با
 رنکینگ‌های شناخته‌شده‌ی بازار همخوان است (این را چشمی چک کن، پنج دقیقه وقت می‌برد و خطاهای فاحش
 را نشان می‌دهد).
 
-> GPU ها الان ۱۰۰٪ پوشش دارند، CPU ها صفر. تا وقتی منبع بنچمارک CPU پیدا نشود، فاز ۳ (که به
-> `fpsCpu` نیاز دارد) نمی‌تواند شروع شود.
+> GPU index الان ۱۰۰٪ از GPU Ark پر است. CPU index هنوز ۰٪ در DB.
+> PassMark crawl آماده‌ی import است؛ این بلاک‌کننده‌ی اصلیِ بستن فاز ۱ است.
+> فاز ۳ («ران میشه؟») برای مقایسه‌ی min/rec عمدتاً به index نیاز دارد؛ FPS/گلوگاه به فاز ۴–۵ مربوط‌اند.
 
-**دستاورد قابل انتشار:** صفحات `/parts/cpu` و `/parts/gpu` که همین حالا در
-`src/config/navigation.ts` لینک دارند ولی صفحه ندارند.
+**دستاورد قابل انتشار:** لیست قطعات در ادمین؛ صفحات عمومی `/parts/*` هنوز در کلاینت کامل نیست.
 
 ---
 
@@ -61,12 +84,12 @@
 - [ ] غنی‌سازی اختیاری با IGDB (موتور، نام فارسی، کاور جایگزین)
 - [ ] مرور دستی بازی‌هایی که هیچ option ای resolve نشده‌اند
 
-**پوشش فعلی matching دقیق (آفلاین، روی کاتالوگ ۲۵۰تایی سخت‌افزار):**
+**پوشش فعلی matching دقیق (آفلاین، سپتامبر ۲۰۲۶):**
 
 | فیلد | فیلدهای دارای متن | فیلدهای با حداقل یک match | option ساخته‌شده |
 | --- | --- | --- | --- |
-| CPU | ۴۳۰ | ۲۳۳ (~۵۴٪) | ۳۸۳ |
-| GPU | ۴۲۲ | ۳۳۵ (~۷۹٪) | ۵۷۱ |
+| CPU | ۴۳۰ | ۳۶۲ (~۸۴٪) | ۶۲۴ |
+| GPU | ۴۲۲ | ۳۷۳ (~۸۸٪) | ۷۲۶ |
 
 باقی‌مانده‌ها عمدتاً مدل‌های خیلی قدیمی خارج از کاتالوگ، یا متن‌های کلی مثل
 `Dual Core 2.8 GHz` / `DirectX 11 compatible` هستند — عمداً fuzzy نمی‌شوند.

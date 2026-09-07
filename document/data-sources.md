@@ -9,7 +9,7 @@
 | فایل | محتوا |
 | --- | --- |
 | `seed/hardware/gpu-data.ts` | ۲۵۰ GPU با مشخصات کامل و `gamingIndex` |
-| `seed/hardware/cpu-data.ts` | ۲۵۰ CPU دسکتاپ با مشخصات کامل |
+| `seed/hardware/cpu-data.ts` | ۲۸۶ CPU دسکتاپ با مشخصات کامل |
 | `seed/hardware/types.ts` | تایپ `GpuSeed` و `CpuSeed` |
 | `seed/hardware/shared.ts` | نرمال‌سازی نام، slug، ساخت alias |
 | `seed/hardware/gpu.ts` / `cpu.ts` | seeder ها |
@@ -42,24 +42,29 @@
 ### ترکیب کاتالوگ
 
 - GPU: ۱۷۹ دسکتاپ + ۷۱ لپ‌تاپ (فیلد `formFactor` تفکیکشان می‌کند)
-- CPU: فقط دسکتاپ. Xeon / EPYC / Threadripper و مدل‌های کم‌مصرف `T` حذف شده‌اند
-- کارت‌هایی که هرگز عرضه نشدند (RTX 4090 Ti، Arc B770، …) در لیست `GPU_PHANTOMS` بلاک شده‌اند
+- CPU: فقط دسکتاپ (۲۸۶ ردیف). Xeon / EPYC / Threadripper و مدل‌های کم‌مصرف `T` حذف شده‌اند
+- کارت‌هایی که هرگز عرضه نشدند (RTX 4090 Ti، Arc B770، RTX 50 SUPER جعلی، …) در لیست `GPU_PHANTOMS` بلاک شده‌اند
 - کارت‌های دوتراشه‌ای (GTX TITAN Z، R9 295X2) حذف شده‌اند چون تخمین تک‌GPU توصیفشان نمی‌کند
+- editionهای نادر (Halo Infinite، Limited LTX، 11Gbps، …) به canonical merge شده‌اند و نام قدیم alias مانده
 
 ### شکاف باز: `Cpu.gamingIndex`
 
-**هیچ منبع بنچمارک CPU ای که لایسنس باز داشته باشد پیدا نشد.** BuildCores فقط مشخصات دارد.
-بنابراین `Cpu.gamingIndex` برای هر ۲۵۰ ردیف `null` است و seeder عمداً آن را پر نمی‌کند.
+`Cpu.gamingIndex` در DB هنوز برای همه‌ی CPUها `null` است. seeder عمداً آن را پر نمی‌کند.
 
-این طبق «قانون شماره ۱» در README است: لایه ۳ فقط از روی شواهد لایه ۲ ساخته می‌شود. اگر از روی
-مشخصات یک عدد حدسی می‌ساختیم، دیگر قابل بازتولید و قابل دفاع نبود.
+**وضعیت PassMark (سپتامبر ۲۰۲۶):**
+- کراولر مستقل در `src/app/modules/benchmark/` آماده است
+- JSONL خام زیر `data/benchmarks/{cpu,gpu}/passmark/` نوشته می‌شود (gitignored)
+- پوشش crawl تقریبی: CPU تقریباً کامل (فقط Athlon X4 940 جامانده)، GPU ~۸۷٪
+- **هنوز به جدول `*BenchmarkScore` import نشده** → `pnpm import:benchmarks`
+- بعد از import باید job ایندکس، `Cpu.gamingIndex` را از CPU Mark بسازد
 
-**تا وقتی این پر نشود، محاسبه‌ی `fpsCpu` و گلوگاه کار نمی‌کند.** گزینه‌ها:
+3DMark Time Spy فقط به‌عنوان تعریف بنچمارک رزرو شده؛ dataset رسمی per-GPU تنظیم نشده و
+عمداً crawl نمی‌شود (`missed/3dmark` با `source-unavailable` نویز طبیعی است).
 
-1. PassMark CPU Mark — لایسنس تجاری دارد، تمیزترین مسیر
-2. Geekbench Browser — قابل جست‌وجو، ولی شرایط استفاده را باید بررسی کرد
-3. استخراج دستی از ریویوهای معتبر برای ۵۰ CPU پرتکرار، بقیه با رگرسیون روی مشخصات
-   (آن ردیف‌ها باید `quality = ESTIMATED` بگیرند)
+این طبق «قانون شماره ۱» در README است: لایه ۳ فقط از روی شواهد لایه ۲ ساخته می‌شود.
+
+**تا وقتی `Cpu.gamingIndex` پر نشود:** مقایسه‌ی CPU در «ران میشه؟» و محاسبه‌ی `fpsCpu`/گلوگاه کامل نیست.
+مسیر فعلی: PassMark CPU Mark → import → hardware-index job.
 
 ### بازتولید کاتالوگ
 
@@ -151,9 +156,11 @@ pnpm exec tsx src/app/db/prisma/seed/games/verify-requirements.ts
 
 | منبع | چه چیزی | یادداشت |
 | --- | --- | --- |
-| PassMark (CPU Benchmarks / GPU Benchmarks) | G3D، G2D، CPU Mark، Single Thread | لیست‌های عمومی دارد و لایسنس تجاری هم می‌فروشد. اگر قصد تجاری داری، مسیر لایسنس را برو |
-| 3DMark / UL Benchmarks | Time Spy، Fire Strike، Steel Nomad | نتایج در ریویوهای عمومی هم هست |
-| Geekbench Browser | Single/Multi، OpenCL، Vulkan | جست‌وجوپذیر |
+| PassMark (CPU / GPU) | CPU Mark، Single Thread، G3D | **مسیر فعال.** کراولر عمومی HTTP + JSONL + importer. لایسنس تجاری را قبل از انتشار محصول چک کن |
+| 3DMark / UL | Time Spy | فقط تعریف در DB؛ crawl عمداً غیرفعال تا dataset نماینده‌ی رسمی پیدا شود |
+| Geekbench Browser | Single/Multi، OpenCL، Vulkan | جست‌وجوپذیر؛ هنوز وصل نشده |
+
+جزئیات اجرا: [`scripts/benchmarks/README.md`](../scripts/benchmarks/README.md)
 
 ### کاتالوگ بازی
 
@@ -207,7 +214,9 @@ fetch  →  ImportRecord (payload خام)  →  normalize  →  match  →  upse
 2. cpus
 3. hardware aliases  (تولیدی، از روی نام‌ها)
 4. benchmarks + scores
-5. hardware-index job        → gamingIndex پر می‌شود
+   - تعریف‌ها: seed `benchmarks.ts` (+ gpuark در seed GPU)
+   - اسکور PassMark: crawl → JSONL → `pnpm import:benchmarks`  ← crawl شده، import مانده
+5. hardware-index job        → gamingIndex پر می‌شود  ← برای CPU هنوز اجرا نشده
 6. games + requirements      (Steam Charts + Store)  ← الان در seed هست
 7. requirement options       (exact match روی alias مرحله ۳)  ← الان در seed هست
 8. demand tier               → نیاز به gamingIndex مرحله ۵

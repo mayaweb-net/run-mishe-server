@@ -1,5 +1,6 @@
 import { normalizeHardwareName } from '@/app/common/hardware/normalize-hardware-name';
 import { CPU_SEED } from '@/app/db/prisma/seed/hardware/cpu-data';
+import { GPU_SERIES_ALIASES } from '@/app/db/prisma/seed/hardware/gpu';
 import { GPU_SEED } from '@/app/db/prisma/seed/hardware/gpu-data';
 import type { CatalogHardware, HardwareTarget } from './types';
 
@@ -25,8 +26,11 @@ export function loadSeedCatalog(
           name: gpu.name,
           normalizedName: normalizeHardwareName(gpu.name),
           target,
-          aliases:
-            gpu.formFactor === 'LAPTOP'
+          aliases: [
+            ...(GPU_SERIES_ALIASES[gpu.slug] ?? []),
+            // Desktop chips may answer to short Steam names; laptop chips
+            // only get explicit series aliases so they cannot steal desktop hits.
+            ...(gpu.formFactor === 'LAPTOP'
               ? []
               : [
                   gpu.name.replace(/^(?:NVIDIA|AMD|Intel)\s+/i, ''),
@@ -34,7 +38,8 @@ export function loadSeedCatalog(
                     /^(?:(?:NVIDIA|AMD|Intel)\s+)?(?:GeForce|Radeon)\s+/i,
                     '',
                   ),
-                ],
+                ]),
+          ],
         }));
 
   return limit == null ? rows : rows.slice(0, limit);
