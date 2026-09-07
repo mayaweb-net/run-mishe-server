@@ -17,10 +17,15 @@
 
 | بنچمارک                       | slug                 | وزن  | پوشش                                    |
 | ----------------------------- | -------------------- | ---- | --------------------------------------- |
-| 3DMark Time Spy (Graphics)    | `3dmark-time-spy`    | 0.30 | DX12، کارت‌های ۲۰۱۶ به بعد              |
-| 3DMark Steel Nomad            | `3dmark-steel-nomad` | 0.30 | نسل جدید                                |
-| PassMark G3D Mark             | `passmark-g3d-mark`  | 0.30 | تقریباً همه‌چیز، از جمله کارت‌های قدیمی |
-| 3DMark Fire Strike (Graphics) | `3dmark-fire-strike` | 0.10 | DX11، پوشش کارت‌های خیلی قدیمی          |
+| GPU Ark GPI                   | `gpuark-gpi`         | 0.70 | همه‌ی کارت‌های کاتالوگ (منبع فعلی seed) |
+| PassMark G3D Mark             | `passmark-g3d-mark`  | 0.30 | تقریباً همه‌چیز؛ crawl فعال             |
+| 3DMark Time Spy (Graphics)    | `3dmark-time-spy`    | 0.30 | رزرو؛ هنوز dataset وصل نیست             |
+| 3DMark Steel Nomad            | `3dmark-steel-nomad` | 0.30 | هنوز seed نشده                          |
+| 3DMark Fire Strike (Graphics) | `3dmark-fire-strike` | 0.10 | هنوز seed نشده                          |
+
+وزن‌ها نسبی‌اند و لازم نیست جمعشان ۱ شود. برای هر قطعه فقط بنچمارک‌هایی که اسکور دارد
+در میانگین می‌آیند (وزن‌ها همان‌جا renormalize می‌شوند). الان عملاً GPU Ark + PassMark
+با هم `gamingIndex` را می‌سازند؛ Time Spy وقتی داده داشته باشد خودکار وارد می‌شود.
 
 بنچمارک‌های `category = "gpu-compute"` (Geekbench OpenCL/Vulkan، Blender Cycles) با
 `weightInIndex = 0` وارد `gamingIndex` نمی‌شوند و فقط `computeIndex` را می‌سازند — چون یک کارت
@@ -74,9 +79,15 @@ CPU:  ln(index) ~ ln(performanceCores + 0.5 × efficiencyCores) + ln(boostClockM
 
 ### اجرا
 
-job نرمال‌سازی بعد از **هر** import بنچمارک اجرا می‌شود و `indexCalculatedAt` را می‌نویسد.
-چون `maxScore(b)` با آمدن یک کارت جدید عوض می‌شود، این job همیشه **همه‌ی** ردیف‌ها را بازمحاسبه
-می‌کند، نه فقط تغییریافته‌ها.
+بعد از import بنچمارک:
+
+```bash
+pnpm index:hardware
+```
+
+کد: `src/app/modules/estimation/hardware-index.ts` (خالص) + `hardware-index.job.ts`.
+job همه‌ی CPU/GPUها را بازمحاسبه می‌کند چون `maxScore(b)` با قطعه‌ی جدید عوض می‌شود.
+`indexCalculatedAt` را می‌نویسد. قطعات بدون اسکور وزن‌دار، `gamingIndex = null` می‌گیرند.
 
 ---
 

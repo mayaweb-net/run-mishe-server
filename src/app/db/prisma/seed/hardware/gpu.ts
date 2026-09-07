@@ -243,11 +243,16 @@ export async function seedGpus(prisma: PrismaClient): Promise<void> {
       category: 'gpu-gaming',
       unit: 'index',
       higherIsBetter: true,
-      weightInIndex: 1,
+      weightInIndex: 0.7,
       sourceUrl: GPU_ARK_DATASET_URL,
       description: 'Relative GPU performance index supplied by GPU Ark.',
     },
-    update: { isActive: true, sourceUrl: GPU_ARK_DATASET_URL },
+    update: {
+      isActive: true,
+      sourceUrl: GPU_ARK_DATASET_URL,
+      category: 'gpu-gaming',
+      weightInIndex: 0.7,
+    },
   });
 
   let aliasCount = 0;

@@ -10,7 +10,7 @@ export async function seedBenchmarks(prisma: PrismaClient): Promise<void> {
       category: definition.category,
       unit: definition.unit,
       higherIsBetter: definition.higherIsBetter,
-      weightInIndex: 0,
+      weightInIndex: definition.weightInIndex,
       isActive: true,
       description: definition.description,
       sourceUrl: definition.sourceUrl,

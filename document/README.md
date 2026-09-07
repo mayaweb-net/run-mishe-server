@@ -95,9 +95,8 @@ limitingComponent = fpsCpu < fpsGpu ? "CPU" : "GPU"
 
 ## وضعیت فعلی
 
-**الان کجایی:** وسط فاز ۱ (کاتالوگ + بنچمارک). کاتالوگ GPU/CPU/بازی آماده است.
-PassMark crawl شده، ولی هنوز به DB import نشده و `Cpu.gamingIndex` خالی است.
-فاز ۳ («ران میشه؟») هنوز شروع نشده.
+**الان کجایی:** انتهای فاز ۱. کاتالوگ + PassMark import + `gamingIndex` برای CPU و GPU پر است.
+قدم منطقی بعدی: seedی `DefaultScaling` / جمع‌وجور فاز ۰، یا شروع فاز ۳ («ران میشه؟»).
 
 جزئیات فازها: [`roadmap.md`](./roadmap.md)
 
@@ -105,18 +104,19 @@ PassMark crawl شده، ولی هنوز به DB import نشده و `Cpu.gamingIn
 - [x] migration اولیه در `src/app/db/prisma/migrations/20260830182000_init`
 - [x] مسیر seed در `prisma.config.ts` اصلاح شد
 - [x] کاتالوگ سخت‌افزار: ۲۵۰ GPU و ۲۸۶ CPU، seed شده و روی Postgres واقعی تست شده
-- [x] `Gpu.gamingIndex` برای هر ۲۵۰ کارت پر است (از شاخص GPU Ark)
+- [x] `Gpu.gamingIndex` از job ایندکس (GPU Ark + PassMark G3D)
+- [x] `Cpu.gamingIndex` از job ایندکس (PassMark single + multi) — تقریباً همه‌ی کاتالوگ
 - [x] کاتالوگ بازی: ۲۳۴ بازی محبوب Steam Charts + requirementهای Steam Store
 - [x] matching دقیق CPU/GPU روی متن requirement → `GameRequirementOption`
       (پوشش آفلاین تقریبی: CPU ~۸۴٪، GPU ~۸۸٪ فیلدهای دارای متن)
-- [x] پایپلاین مستقل PassMark: crawl → JSONL → importer (`pnpm crawler:cpu` / `crawler:gpu` / `import:benchmarks`)
-- [ ] import اسکورهای PassMark به DB و job محاسبه‌ی `Cpu.gamingIndex`
+- [x] پایپلاین مستقل PassMark: crawl → JSONL → importer → `pnpm index:hardware`
 - [ ] اکستنشن‌های `pg_trgm` / `unaccent` و ایندکس‌های سرچ فازی (SQL دستی)
-- [ ] seed جدول‌های ثابت (`DefaultScaling`؛ تعریف‌های PassMark/Time Spy در seed هست ولی باید روی DB اجرا شود)
+- [ ] seed جدول‌های ثابت (`DefaultScaling`)
 - [ ] محاسبه‌ی `Game.demandTier` از روی سخت‌افزار recommended
 - [ ] موتور تخمین / «ران میشه؟»
 - [x] ماژول‌های Nest: `hardware` + `game` (services) + `admin` (controllers)
 - [x] ماژول `benchmark` (کراولر/ایمپورتر مستقل از Nest runtime)
+- [x] ماژول `estimation` (فعلاً فقط hardware-index)
 
 ## معماری ماژول‌های Nest
 
@@ -159,4 +159,5 @@ pnpm exec tsx src/app/db/prisma/seed/games/verify-requirements.ts
 pnpm crawler:cpu -- --source passmark
 pnpm crawler:gpu -- --source passmark
 pnpm import:benchmarks
+pnpm index:hardware
 ```

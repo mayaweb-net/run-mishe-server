@@ -24,6 +24,7 @@
     "crawler:cpu": "tsx --tsconfig tsconfig.json scripts/benchmarks/crawl-cpu.ts",
     "crawler:gpu": "tsx --tsconfig tsconfig.json scripts/benchmarks/crawl-gpu.ts",
     "import:benchmarks": "tsx --tsconfig tsconfig.json scripts/benchmarks/import.ts",
+    "index:hardware": "tsx --tsconfig tsconfig.json scripts/benchmarks/index-hardware.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",

@@ -5,9 +5,11 @@ This pipeline runs independently from the NestJS application:
 ```text
 catalog seed -> crawler -> cached response + JSONL -> importer
              -> ImportBatch -> ImportRecord -> canonical benchmark score
+             -> pnpm index:hardware -> Cpu/Gpu.gamingIndex
 ```
 
-It never calculates or writes `Cpu.gamingIndex` or `Gpu.gamingIndex`.
+Crawl/import never write `gamingIndex` directly. The index job derives it from
+`Benchmark.weightInIndex` + `*BenchmarkScore` (see `document/estimation.md`).
 
 ## Sources
 
@@ -78,6 +80,7 @@ pnpm exec prisma db seed
 pnpm crawler:cpu
 pnpm crawler:gpu
 pnpm import:benchmarks
+pnpm index:hardware
 ```
 
 Pass explicit snapshots when needed:
@@ -86,6 +89,16 @@ Pass explicit snapshots when needed:
 pnpm import:benchmarks data/benchmarks/cpu/passmark/2026-09-05.jsonl
 pnpm import:benchmarks --dry-run data/benchmarks/gpu/passmark/2026-09-05.jsonl
 ```
+
+### Hardware index
+
+```bash
+pnpm index:hardware
+```
+
+Rebuilds `Cpu.gamingIndex` / `singleThreadIndex` / `multiThreadIndex` and
+`Gpu.gamingIndex` from active weighted benchmarks. GPU currently blends GPU Ark
+GPI (0.7) with PassMark G3D (0.3). CPU blends PassMark single (65%) and multi (35%).
 
 The importer:
 

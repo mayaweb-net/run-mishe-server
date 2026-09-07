@@ -49,22 +49,15 @@
 
 ### شکاف باز: `Cpu.gamingIndex`
 
-`Cpu.gamingIndex` در DB هنوز برای همه‌ی CPUها `null` است. seeder عمداً آن را پر نمی‌کند.
+**وضعیت سپتامبر ۲۰۲۶:** تقریباً بسته شده.
 
-**وضعیت PassMark (سپتامبر ۲۰۲۶):**
-- کراولر مستقل در `src/app/modules/benchmark/` آماده است
-- JSONL خام زیر `data/benchmarks/{cpu,gpu}/passmark/` نوشته می‌شود (gitignored)
-- پوشش crawl تقریبی: CPU تقریباً کامل (فقط Athlon X4 940 جامانده)، GPU ~۸۷٪
-- **هنوز به جدول `*BenchmarkScore` import نشده** → `pnpm import:benchmarks`
-- بعد از import باید job ایندکس، `Cpu.gamingIndex` را از CPU Mark بسازد
+- PassMark crawl + import فعال است
+- `pnpm index:hardware` از single-thread و CPU Mark، `singleThreadIndex` / `multiThreadIndex` /
+  `gamingIndex` را می‌نویسد (ترکیب ۶۵/۳۵ طبق `estimation.md`)
+- پوشش فعلی: ~۲۸۵ از ۲۸۶ CPU (یکی مثل Athlon X4 940 بدون اسکور می‌ماند)
+- GPU: همین job `gamingIndex` را از GPU Ark GPI (۰٫۷) + PassMark G3D (۰٫۳) بازمی‌سازد
 
-3DMark Time Spy فقط به‌عنوان تعریف بنچمارک رزرو شده؛ dataset رسمی per-GPU تنظیم نشده و
-عمداً crawl نمی‌شود (`missed/3dmark` با `source-unavailable` نویز طبیعی است).
-
-این طبق «قانون شماره ۱» در README است: لایه ۳ فقط از روی شواهد لایه ۲ ساخته می‌شود.
-
-**تا وقتی `Cpu.gamingIndex` پر نشود:** مقایسه‌ی CPU در «ران میشه؟» و محاسبه‌ی `fpsCpu`/گلوگاه کامل نیست.
-مسیر فعلی: PassMark CPU Mark → import → hardware-index job.
+Fallback رگرسیون برای قطعات بدون بنچمارک هنوز پیاده نشده (`quality = ESTIMATED`).
 
 ### بازتولید کاتالوگ
 
@@ -215,8 +208,8 @@ fetch  →  ImportRecord (payload خام)  →  normalize  →  match  →  upse
 3. hardware aliases  (تولیدی، از روی نام‌ها)
 4. benchmarks + scores
    - تعریف‌ها: seed `benchmarks.ts` (+ gpuark در seed GPU)
-   - اسکور PassMark: crawl → JSONL → `pnpm import:benchmarks`  ← crawl شده، import مانده
-5. hardware-index job        → gamingIndex پر می‌شود  ← برای CPU هنوز اجرا نشده
+   - اسکور PassMark: crawl → JSONL → `pnpm import:benchmarks`
+5. hardware-index job (`pnpm index:hardware`) → gamingIndex پر می‌شود
 6. games + requirements      (Steam Charts + Store)  ← الان در seed هست
 7. requirement options       (exact match روی alias مرحله ۳)  ← الان در seed هست
 8. demand tier               → نیاز به gamingIndex مرحله ۵

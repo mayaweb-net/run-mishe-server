@@ -16,18 +16,14 @@
 | فاز | درصد تقریبی | یادداشت |
 | --- | ---: | --- |
 | ۰ پایه‌ی دیتا | ~۷۰٪ | اسکیما و seed هست؛ trigram و public search و DefaultScaling مانده |
-| ۱ کاتالوگ سخت‌افزار | ~۸۰٪ | کاتالوگ کامل؛ PassMark crawl شده؛ **import + `Cpu.gamingIndex` مانده** |
+| ۱ کاتالوگ سخت‌افزار | ~۹۵٪ | کاتالوگ + PassMark + `gamingIndex` CPU/GPU؛ ESTIMATED fallback مانده |
 | ۲ کاتالوگ بازی | ~۸۵٪ | ۲۳۴ بازی + matching خوب؛ `demandTier` مانده |
 | ۳ «ران میشه؟» | ۰٪ | هنوز شروع نشده |
 | ۴+ | ۰٪ | بعد از فاز ۳ |
 
-**جمع تا اولین فیچر قابل انتشار (فاز ۳):** حدود **۵۵–۶۰٪** مسیر دیتا/زیرساخت؛ خود محصول هنوز ۰٪.
+**جمع تا اولین فیچر قابل انتشار (فاز ۳):** حدود **۶۵–۷۰٪** مسیر دیتا/زیرساخت؛ خود محصول هنوز ۰٪.
 
-**قدم بعدی پیشنهادی (به ترتیب):**
-1. `pnpm import:benchmarks` برای ریختن PassMark JSONL به DB
-2. job محاسبه‌ی `Cpu.gamingIndex` از CPU Mark (+ وزن‌دهی)
-3. seed `DefaultScaling` + اطمینان از تعریف‌های `Benchmark` روی DB
-4. شروع فاز ۳: `POST /run-check` (حتی با GPU-only تا CPU index کامل شود، اگر لازم بود موقت)
+**قدم بعدی پیشنهادی:** شروع فاز ۳ (`POST /run-check`) یا بستن باقیمانده‌ی فاز ۰ (`DefaultScaling` / trigram).
 
 ---
 
@@ -55,22 +51,19 @@
 - [x] پایپلاین PassMark (crawl + JSONL + importer + matching محافظه‌کارانه)
       — پوشش تقریبی crawl: CPU تقریباً کامل، GPU ~۸۷٪ (باقی‌مانده عمدتاً Max-Q/Mobile بدون صفحه جدا)
 - [x] تمیزکاری catalog: merge editionهای نادر + alias؛ حذف GPUهای عرضه‌نشده
-- [ ] **import اسکور PassMark به DB** (`pnpm import:benchmarks`) — الان JSONL هست، جدول اسکور هنوز خالی است
-- [ ] **`Cpu.gamingIndex` از PassMark CPU Mark** — جزئیات در
-      [`data-sources.md`](./data-sources.md#شکاف-باز-cpugamingindex)
-- [ ] `hardware-index.job.ts` — بازمحاسبه‌ی `gamingIndex` از روی `*BenchmarkScore`
+- [x] import اسکور PassMark به DB (`pnpm import:benchmarks`)
+- [x] `hardware-index` job — `Cpu`/`Gpu.gamingIndex` از روی `*BenchmarkScore`
+      (`pnpm index:hardware`؛ GPU = Ark 0.7 + G3D 0.3؛ CPU = single 65% + multi 35%)
 - [ ] رگرسیون fallback برای قطعات بدون بنچمارک (`quality = ESTIMATED`)
-- [ ] 3DMark Time Spy: فقط تعریف رزرو شده؛ منبع per-GPU تنظیم نشده (عمدی)
+- [ ] 3DMark Time Spy: تعریف + وزن رزرو شده؛ منبع per-GPU هنوز نیست
 
 **تمام‌شده وقتی:** بیش از ۸۵٪ GPU ها و CPU ها `gamingIndex` دارند، و مرتب‌سازی بر اساس آن با
 رنکینگ‌های شناخته‌شده‌ی بازار همخوان است (این را چشمی چک کن، پنج دقیقه وقت می‌برد و خطاهای فاحش
 را نشان می‌دهد).
 
-> GPU index الان ۱۰۰٪ از GPU Ark پر است. CPU index هنوز ۰٪ در DB.
-> PassMark crawl آماده‌ی import است؛ این بلاک‌کننده‌ی اصلیِ بستن فاز ۱ است.
-> فاز ۳ («ران میشه؟») برای مقایسه‌ی min/rec عمدتاً به index نیاز دارد؛ FPS/گلوگاه به فاز ۴–۵ مربوط‌اند.
+> پوشش فعلی index: GPU ۱۰۰٪، CPU ~۹۹٪ (یکی بدون PassMark). فاز ۱ از نظر شواهد practically بسته است.
 
-**دستاورد قابل انتشار:** لیست قطعات در ادمین؛ صفحات عمومی `/parts/*` هنوز در کلاینت کامل نیست.
+**دستاورد قابل انتشار:** لیست قطعات در ادمین با `gamingIndex`؛ صفحات عمومی `/parts/*` هنوز در کلاینت کامل نیست.
 
 ---
 

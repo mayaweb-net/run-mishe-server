@@ -9,6 +9,8 @@ export interface BenchmarkDefinition {
   category: string;
   unit: string;
   higherIsBetter: true;
+  /** Relative contribution to gamingIndex; 0 = excluded from the index job. */
+  weightInIndex: number;
   description: string;
   sourceUrl: string;
 }
@@ -23,6 +25,7 @@ export const BENCHMARK_DEFINITIONS: readonly BenchmarkDefinition[] = [
     category: 'cpu-multi',
     unit: 'points',
     higherIsBetter: true,
+    weightInIndex: 0.65,
     description:
       'PassMark PerformanceTest CPU Mark aggregate CPU performance score.',
     sourceUrl: 'https://www.cpubenchmark.net/cpu-list/',
@@ -36,6 +39,7 @@ export const BENCHMARK_DEFINITIONS: readonly BenchmarkDefinition[] = [
     category: 'cpu-single',
     unit: 'points',
     higherIsBetter: true,
+    weightInIndex: 0.7,
     description: 'PassMark CPU single-thread performance rating.',
     sourceUrl: 'https://www.cpubenchmark.net/singleThread.html',
   },
@@ -48,6 +52,7 @@ export const BENCHMARK_DEFINITIONS: readonly BenchmarkDefinition[] = [
     category: 'gpu-gaming',
     unit: 'points',
     higherIsBetter: true,
+    weightInIndex: 0.3,
     description: 'PassMark PerformanceTest average G3D Mark rating.',
     sourceUrl: 'https://www.videocardbenchmark.net/gpu_list.php',
   },
@@ -60,6 +65,8 @@ export const BENCHMARK_DEFINITIONS: readonly BenchmarkDefinition[] = [
     category: 'gpu-gaming',
     unit: 'points',
     higherIsBetter: true,
+    // Reserved until a representative per-GPU dataset is wired.
+    weightInIndex: 0.3,
     description:
       '3DMark Time Spy Graphics score. Time Spy is a DirectX 12 benchmark rendered at 2560x1440.',
     sourceUrl: 'https://benchmarks.ul.com/3dmark-time-spy',
