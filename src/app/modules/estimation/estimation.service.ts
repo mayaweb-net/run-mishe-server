@@ -28,12 +28,16 @@ import {
   confidenceLabelFa,
   type Coefficients,
   type ConfidenceLevel,
+  type EstimateMethod,
   type ScreenResolution as EstResolution,
   type Upscaler as EstUpscaler,
 } from './estimation.constants';
+import { maxGamingIndex } from './demand-tier';
 import {
   bottleneckLabelFa,
   estimateFps,
+  inferRecCpuIndexFromGpu,
+  relativeCoefficientsFromRecommended,
   type EstimateOutput,
 } from './estimation.engine';
 
@@ -59,6 +63,13 @@ export interface FpsEstimateResponse {
   confidence: ConfidenceLevel;
   confidenceLabel: string;
   isCalibrated: boolean;
+  /** How cold-start / profile coefficients were chosen. */
+  method: EstimateMethod;
+  anchors: {
+    recGpuIndex: number | null;
+    recCpuIndex: number | null;
+    recCpuInferred: boolean;
+  };
   preset: QualityPreset;
   upscaler: Upscaler;
   rayTracing: boolean;
@@ -173,15 +184,42 @@ export class EstimationService {
       sampleCount: profileRow?.sampleCount ?? 0,
     });
 
-    const profile: Coefficients = isCalibrated && profileRow
-      ? {
-          gpuCoef: profileRow.gpuCoef,
-          gpuExponent: profileRow.gpuExponent,
-          cpuCoef: profileRow.cpuCoef,
-          cpuExponent: profileRow.cpuExponent,
-          blendK: profileRow.blendK,
-        }
-      : coldStartCoefficients(game.demandTier);
+    const anchors = await this.loadRecommendedAnchors(game.id);
+    let method: EstimateMethod;
+    let profile: Coefficients;
+    let recCpuInferred = false;
+
+    if (isCalibrated && profileRow) {
+      method = 'calibrated';
+      profile = {
+        gpuCoef: profileRow.gpuCoef,
+        gpuExponent: profileRow.gpuExponent,
+        cpuCoef: profileRow.cpuCoef,
+        cpuExponent: profileRow.cpuExponent,
+        blendK: profileRow.blendK,
+      };
+    } else if (anchors.recGpuIndex != null) {
+      method = 'relative-recommended';
+      let recCpuIndex = anchors.recCpuIndex;
+      if (recCpuIndex == null) {
+        recCpuIndex = inferRecCpuIndexFromGpu(anchors.recGpuIndex);
+        recCpuInferred = true;
+        warnings.push(
+          'CPU Recommended مچ نشده؛ لنگر CPU از روی GPU Recommended تخمین زده شد.',
+        );
+      }
+      anchors.recCpuIndex = recCpuIndex;
+      profile = relativeCoefficientsFromRecommended({
+        recGpuIndex: anchors.recGpuIndex,
+        recCpuIndex,
+      });
+    } else {
+      method = 'demand-tier';
+      profile = coldStartCoefficients(game.demandTier);
+      warnings.push(
+        'GPU Recommended مچ نشده؛ تخمین از demandTier (سطل‌بندی) است.',
+      );
+    }
 
     const ramNeedGb =
       isCalibrated && profileRow
@@ -238,6 +276,12 @@ export class EstimationService {
       confidence,
       confidenceLabel: confidenceLabelFa(confidence),
       isCalibrated,
+      method,
+      anchors: {
+        recGpuIndex: anchors.recGpuIndex,
+        recCpuIndex: anchors.recCpuIndex,
+        recCpuInferred,
+      },
       preset,
       upscaler,
       rayTracing,
@@ -268,6 +312,46 @@ export class EstimationService {
 
     await this.writeCache(cacheKey, response);
     return response;
+  }
+
+  private async loadRecommendedAnchors(gameId: string): Promise<{
+    recGpuIndex: number | null;
+    recCpuIndex: number | null;
+  }> {
+    const requirement = await this.prisma.gameRequirement.findUnique({
+      where: {
+        gameId_tier: { gameId, tier: 'RECOMMENDED' },
+      },
+      select: {
+        options: {
+          where: {
+            OR: [
+              { kind: 'GPU', gpuId: { not: null } },
+              { kind: 'CPU', cpuId: { not: null } },
+            ],
+          },
+          select: {
+            kind: true,
+            gpu: { select: { gamingIndex: true } },
+            cpu: { select: { gamingIndex: true } },
+          },
+        },
+      },
+    });
+
+    if (!requirement) return { recGpuIndex: null, recCpuIndex: null };
+
+    const gpuIndexes = requirement.options
+      .filter((option) => option.kind === 'GPU')
+      .map((option) => option.gpu?.gamingIndex ?? null);
+    const cpuIndexes = requirement.options
+      .filter((option) => option.kind === 'CPU')
+      .map((option) => option.cpu?.gamingIndex ?? null);
+
+    return {
+      recGpuIndex: maxGamingIndex(gpuIndexes),
+      recCpuIndex: maxGamingIndex(cpuIndexes),
+    };
   }
 
   private async loadScalingRows(

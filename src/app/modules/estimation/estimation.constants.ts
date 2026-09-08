@@ -25,9 +25,22 @@ export type Upscaler =
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
 
 /** Bump when the FPS formula or cold-start tables change (invalidates Redis). */
-export const ESTIMATION_ENGINE_VERSION = 7;
+export const ESTIMATION_ENGINE_VERSION = 8;
 
 export const DEFAULT_BLEND_K = 8;
+
+/**
+ * Relative cold-start: on Recommended GPU+CPU at 1080p/HIGH, target ~60 FPS
+ * after soft-min. REF is slightly above 60 so softMin(REF, REF, 8) ≈ 60.
+ */
+export const RELATIVE_REF_FPS = 65.5;
+export const RELATIVE_GPU_EXPONENT = 0.88;
+export const RELATIVE_CPU_EXPONENT = 1.0;
+
+export type EstimateMethod =
+  | 'calibrated'
+  | 'relative-recommended'
+  | 'demand-tier';
 
 export interface Coefficients {
   gpuCoef: number;

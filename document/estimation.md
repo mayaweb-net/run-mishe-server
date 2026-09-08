@@ -259,9 +259,27 @@ const severity =
 
 ---
 
-## مقادیر cold-start
+## Cold-start نسبی به Recommended (موتور v8+)
 
-برای بازی‌هایی که `FpsSample` ندارند (اکثریت مطلق کاتالوگ). بر اساس `Game.demandTier`:
+وقتی بازی `GameRequirement(RECOMMENDED)` با GPU مچ‌شده داشته باشد، به‌جای سطل
+`demandTier` از نسبت index استفاده می‌شود:
+
+```
+fpsGpu = REF × (userGpu / recGpu)^0.88 × scaling
+fpsCpu = REF × (userCpu / recCpu)^1.0 × cpuPresetFactor
+fps    = softMin(fpsGpu, fpsCpu, k=8)
+```
+
+`REF ≈ 65.5` طوری است که روی خود Recommended در ۱۰۸۰p/HIGH بعد از soft-min حدود
+۶۰ FPS بیاید. اگر CPU Recommended مچ نشده باشد از `1.55 × recGpu` تخمین زده می‌شود.
+اگر GPU Recommended هم نباشد، به `demandTier` برمی‌گردد.
+
+---
+
+## Cold-start با `demandTier` (fallback)
+
+برای بازی‌هایی که `FpsSample` ندارند و GPU Recommended مچ‌شده هم ندارند.
+بر اساس `Game.demandTier`:
 
 ```ts
 const COLD_START: Record<DemandTier, Omit<Coefficients, 'blendK'>> = {

@@ -5,6 +5,10 @@
 
 import {
   CPU_PRESET_FACTOR,
+  DEFAULT_BLEND_K,
+  RELATIVE_CPU_EXPONENT,
+  RELATIVE_GPU_EXPONENT,
+  RELATIVE_REF_FPS,
   type Coefficients,
   type ConfidenceLevel,
   type QualityPreset,
@@ -67,6 +71,37 @@ export function memoryPenalty(
   const ratio = haveGb / needGb;
   if (ratio >= 1) return 1;
   return clamp(floor + slope * ratio, floor, 1);
+}
+
+/**
+ * Build power-curve coefficients so that on Recommended hardware at
+ * 1080p/HIGH, fpsGpu ≈ fpsCpu ≈ RELATIVE_REF_FPS (≈60 after soft-min).
+ *
+ *   fpsGpu = REF × (userGpu / recGpu)^α × scaling
+ *          = (REF / recGpu^α) × userGpu^α × scaling
+ */
+export function relativeCoefficientsFromRecommended(input: {
+  recGpuIndex: number;
+  recCpuIndex: number;
+}): Coefficients {
+  const recGpu = input.recGpuIndex;
+  const recCpu = input.recCpuIndex;
+  if (!(recGpu > 0) || !(recCpu > 0)) {
+    throw new RangeError('Recommended GPU/CPU indexes must be positive');
+  }
+
+  return {
+    gpuCoef: RELATIVE_REF_FPS / recGpu ** RELATIVE_GPU_EXPONENT,
+    gpuExponent: RELATIVE_GPU_EXPONENT,
+    cpuCoef: RELATIVE_REF_FPS / recCpu ** RELATIVE_CPU_EXPONENT,
+    cpuExponent: RELATIVE_CPU_EXPONENT,
+    blendK: DEFAULT_BLEND_K,
+  };
+}
+
+/** When Recommended has no matched CPU, pair a plausible CPU index to the GPU. */
+export function inferRecCpuIndexFromGpu(recGpuIndex: number): number {
+  return clamp(recGpuIndex * 1.55, 12, 70);
 }
 
 export function estimateFps(input: EstimateInput): EstimateOutput {
