@@ -212,7 +212,7 @@ fetch  →  ImportRecord (payload خام)  →  normalize  →  match  →  upse
 5. hardware-index job (`pnpm index:hardware`) → gamingIndex پر می‌شود
 6. games + requirements      (Steam Charts + Store)  ← الان در seed هست
 7. requirement options       (exact match روی alias مرحله ۳)  ← الان در seed هست
-8. demand tier               → نیاز به gamingIndex مرحله ۵
+8. demand tier (`pnpm index:demand-tier`) → از max gamingIndex GPUهای Recommended
 9. fps samples
 10. calibration job          → GameProfile / GameScaling
 ```

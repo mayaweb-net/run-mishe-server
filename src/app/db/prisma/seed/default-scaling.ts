@@ -10,7 +10,7 @@ import {
  * Source: document/estimation.md — DefaultScaling seed table.
  */
 const RESOLUTION_FACTOR: Record<ScreenResolution, number> = {
-  [ScreenResolution.R720P]: 1.55,
+  [ScreenResolution.R720P]: 1.8,
   [ScreenResolution.R1080P]: 1.0,
   [ScreenResolution.R1440P]: 0.66,
   [ScreenResolution.UW1440P]: 0.53,

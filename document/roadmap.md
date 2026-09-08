@@ -17,13 +17,14 @@
 | --- | ---: | --- |
 | ۰ پایه‌ی دیتا | ~۷۰٪ | اسکیما و seed هست؛ trigram و public search و DefaultScaling مانده |
 | ۱ کاتالوگ سخت‌افزار | ~۹۵٪ | کاتالوگ + PassMark + `gamingIndex` CPU/GPU؛ ESTIMATED fallback مانده |
-| ۲ کاتالوگ بازی | ~۸۵٪ | ۲۳۴ بازی + matching خوب؛ `demandTier` مانده |
+| ۲ کاتالوگ بازی | ~۹۵٪ | ۲۳۴ بازی + matching خوب؛ `demandTier` از recommended GPU |
+
 | ۳ «ران میشه؟» | ۰٪ | هنوز شروع نشده |
-| ۴+ | ۰٪ | بعد از فاز ۳ |
+| ۴+ | در حال شروع | cold-start FPS: engine + `POST /fps-estimate` + `/fps` |
 
 **جمع تا اولین فیچر قابل انتشار (فاز ۳):** حدود **۶۵–۷۰٪** مسیر دیتا/زیرساخت؛ خود محصول هنوز ۰٪.
 
-**قدم بعدی پیشنهادی:** شروع فاز ۳ (`POST /run-check`) یا بستن باقیمانده‌ی فاز ۰ (`DefaultScaling` / trigram).
+**قدم بعدی پیشنهادی:** شروع فاز ۴ (موتور cold-start FPS) یا فاز ۳ (`POST /run-check`).
 
 ---
 
@@ -73,7 +74,8 @@
 - [x] fetch متادیتا و `pc_requirements` از Steam Store API → `seed/games/game-data.ts`
 - [x] seed `Game` + `GameRequirement` (min/recommended)
 - [x] matching دقیق alias روی متن requirement → `GameRequirementOption`
-- [ ] محاسبه‌ی `Game.demandTier` از روی سخت‌افزار recommended (نیاز به `gamingIndex`)
+- [x] محاسبه‌ی `Game.demandTier` از روی سخت‌افزار recommended (نیاز به `gamingIndex`)
+      (`pnpm index:demand-tier`)
 - [ ] غنی‌سازی اختیاری با IGDB (موتور، نام فارسی، کاور جایگزین)
 - [ ] مرور دستی بازی‌هایی که هیچ option ای resolve نشده‌اند
 
@@ -110,14 +112,15 @@
 
 ## فاز ۴ — تخمین FPS · ~۲ تا ۳ هفته
 
-- [ ] `estimation.engine.ts` به‌صورت توابع خالص + تست
+- [x] `estimation.engine.ts` به‌صورت توابع خالص + تست
 - [ ] seed دستی `FpsSample` (۵۰ بازی × ۱۵ GPU × ۳ رزولوشن)
 - [ ] `calibration.job.ts`
-- [ ] `POST /fps-estimate` با کش Redis
-- [ ] وصل‌کردن `/fps` و حذف `mockResolutions` از `src/config/fps-calculator.ts`
-- [ ] نمایش برچسب اطمینان در UI
+- [x] `POST /fps-estimate` با کش Redis (cold-start از `demandTier` + `DefaultScaling`)
+- [x] وصل‌کردن `/fps` و حذف `mockResolutions` از `src/config/fps-calculator.ts`
+- [x] نمایش برچسب اطمینان در UI (`تخمینی` / متوسط / بالا)
 
 **تمام‌شده وقتی:** MAPE روی مجموعه‌ی hold-out کمتر از ۱۵٪ است.
+(الان cold-start قابل دمو است؛ کالیبراسیون هنوز نرسیده.)
 
 سنگین‌ترین فاز، و بیشتر وزنش کار دستی جمع‌آوری دیتاست نه کدنویسی. جمع‌آوری را از همین حالا موازی
 با فازهای قبل شروع کن.

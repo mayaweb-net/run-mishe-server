@@ -78,7 +78,7 @@ kind + alias  →  cpuId | gpuId
 | `igdbId` | غنی‌سازی بعدی (هنوز seed نشده) |
 | `slug` | URL صفحه‌ی بازی |
 | `popularity` | عدد فعلی Steam Charts (بازیکنان آنلاین) |
-| `demandTier` | cold-start برای استیمیتور؛ هنوز از recommended hardware پر نشده |
+| `demandTier` | cold-start برای استیمیتور؛ از max `gamingIndex` GPUهای Recommended (`pnpm index:demand-tier`) |
 | `rawPayload` | snapshot استور (platforms، categories، HTML خام requirement، …) |
 
 ### `GameRequirement`

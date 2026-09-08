@@ -136,7 +136,7 @@ fps *= vramPenalty * ramPenalty;
 
 | رزولوشن               | ضریب |
 | --------------------- | ---- |
-| `R720P`               | 1.55 |
+| `R720P`               | 1.80 |
 | `R1080P`              | 1.00 |
 | `R1440P`              | 0.66 |
 | `UW1440P` (3440×1440) | 0.53 |
@@ -212,7 +212,7 @@ const ramPenalty = ramRatio >= 1 ? 1 : clamp(0.5 + 0.5 * ramRatio, 0.5, 1);
 | `HEAVY`   | 7          | 8          | 10      | 12       |
 | `EXTREME` | 9          | 11         | 13      | 16       |
 
-`ramNeedGb` پیش‌فرض: `LIGHT` 8، `MEDIUM` 12، `HEAVY` 16، `EXTREME` 24.
+`ramNeedGb` پیش‌فرض: `LIGHT` 8، `MEDIUM` 12، `HEAVY` 16، `EXTREME` 16.
 
 کمبود VRAM در واقعیت بیشتر به‌شکل stutter ظاهر می‌شود تا افت میانگین، پس در `onePercentLow`
 جریمه‌ی اضافه هم می‌خورد (پایین‌تر).
@@ -266,9 +266,9 @@ const severity =
 ```ts
 const COLD_START: Record<DemandTier, Omit<Coefficients, 'blendK'>> = {
   LIGHT: { gpuCoef: 28.5, gpuExponent: 0.75, cpuCoef: 7.0, cpuExponent: 1.0 },
-  MEDIUM: { gpuCoef: 8.75, gpuExponent: 0.82, cpuCoef: 3.0, cpuExponent: 1.0 },
-  HEAVY: { gpuCoef: 3.83, gpuExponent: 0.88, cpuCoef: 1.8, cpuExponent: 1.0 },
-  EXTREME: { gpuCoef: 2.02, gpuExponent: 0.92, cpuCoef: 1.3, cpuExponent: 1.0 },
+  MEDIUM: { gpuCoef: 8.75, gpuExponent: 0.82, cpuCoef: 4.5, cpuExponent: 1.0 },
+  HEAVY: { gpuCoef: 4.0, gpuExponent: 0.88, cpuCoef: 3.8, cpuExponent: 1.0 },
+  EXTREME: { gpuCoef: 2.4, gpuExponent: 0.92, cpuCoef: 3.3, cpuExponent: 1.0 },
 };
 ```
 
@@ -285,9 +285,25 @@ const COLD_START: Record<DemandTier, Omit<Coefficients, 'blendK'>> = {
 | بیشترین `gamingIndex` بین GPU های recommended | tier      |
 | --------------------------------------------- | --------- |
 | < 8                                           | `LIGHT`   |
-| 8 تا 18                                       | `MEDIUM`  |
-| 18 تا 32                                      | `HEAVY`   |
-| ≥ 32                                          | `EXTREME` |
+| 8 تا 12                                       | `MEDIUM`  |
+| 12 تا 20                                      | `HEAVY`   |
+| ≥ 20                                          | `EXTREME` |
+
+آستانه‌ها طوری‌اند که:
+
+- Recommended نسل GTX 1060 / RX 480 (حدود ۱۲–۱۶، مثل RDR2) → `HEAVY`
+- Recommended نسل RTX 3060+ (مثل GTA V Enhanced) → `EXTREME`
+
+```bash
+pnpm index:demand-tier
+pnpm index:demand-tier --dry-run
+```
+
+کد: `src/app/modules/estimation/demand-tier.ts` + `demand-tier.job.ts`.
+بازی‌هایی که GPU Recommended با `gamingIndex` ندارند دست‌نخورده می‌مانند (معمولاً `MEDIUM`).
+
+اگر Steam Recommended با واقعیت فاصله داشت (مثل Ghost Recon Wildlands)،
+override دستی در `demand-tier-overrides.ts` اعمال می‌شود.
 
 بعد از ingest، ۵۰ بازی محبوب را دستی مرور کن — تولیدکننده‌ها گاهی requirement را غیرواقعی
 می‌نویسند.
@@ -297,13 +313,13 @@ const COLD_START: Record<DemandTier, Omit<Coefficients, 'blendK'>> = {
 RTX 4060 (`gamingIndex ≈ 25`) + Ryzen 5 3600 (`gamingIndex ≈ 45`)، Cyberpunk 2077، 1080p HIGH:
 
 ```
-fpsGpu = 3.83 × 25^0.88 = 65
-fpsCpu = 1.8  × 45^1.00 = 81
-fps    = (65^-8 + 81^-8)^(-1/8) ≈ 64
-گلوگاه = (81 − 65) / 81 = ۲۰٪ روی GPU
+fpsGpu = 4.0 × 25^0.88 ≈ 68
+fpsCpu = 3.8 × 45^1.00 ≈ 171
+fps    = (68^-8 + 171^-8)^(-1/8) ≈ 66
+گلوگاه = روی GPU
 ```
 
-اندازه‌گیری واقعی این ترکیب حدود ۶۰ تا ۶۵ FPS است. cold-start بدون هیچ دیتای FPS این را می‌دهد؛
+اندازه‌گیری واقعی این ترکیب حدود ۶۰ تا ۷۰ FPS است. cold-start بدون هیچ دیتای FPS این را می‌دهد؛
 با کالیبراسیون بهتر هم می‌شود.
 
 ---

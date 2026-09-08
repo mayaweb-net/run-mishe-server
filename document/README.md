@@ -112,8 +112,11 @@ limitingComponent = fpsCpu < fpsGpu ? "CPU" : "GPU"
 - [x] پایپلاین مستقل PassMark: crawl → JSONL → importer → `pnpm index:hardware`
 - [ ] اکستنشن‌های `pg_trgm` / `unaccent` و ایندکس‌های سرچ فازی (SQL دستی)
 - [x] seed جدول‌های ثابت (`DefaultScaling` — ۲۴ ردیف)
-- [ ] محاسبه‌ی `Game.demandTier` از روی سخت‌افزار recommended
-- [ ] موتور تخمین / «ران میشه؟» / FPS calculator
+- [x] محاسبه‌ی `Game.demandTier` از روی سخت‌افزار recommended
+      (`pnpm index:demand-tier`)
+- [x] موتور تخمین cold-start / `POST /fps-estimate` / صفحه `/fps`
+- [ ] «ران میشه؟» (`POST /run-check`)
+- [ ] کالیبراسیون با `FpsSample`
 - [x] ماژول‌های Nest: `hardware` + `game` (services) + `admin` (controllers)
 - [x] ماژول `benchmark` (کراولر/ایمپورتر مستقل از Nest runtime)
 - [x] ماژول `estimation` (فعلاً فقط hardware-index)
@@ -160,4 +163,5 @@ pnpm crawler:cpu -- --source passmark
 pnpm crawler:gpu -- --source passmark
 pnpm import:benchmarks
 pnpm index:hardware
+pnpm index:demand-tier
 ```

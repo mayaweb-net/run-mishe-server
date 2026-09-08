@@ -54,9 +54,11 @@ When the client needs the same data, add public controllers inside the domain mo
 src/app/modules/hardware/controllers/hardware.controller.ts
 ```
 
-Public routes: `GET /hardware/cpus`, `GET /hardware/gpus`  
+Public routes: `GET /hardware/cpus`, `GET /hardware/gpus`, `GET /games`  
 Admin routes: `GET /admin/hardware/cpus`, `GET /admin/hardware/gpus`  
 Admin benchmarks: `GET /admin/benchmarks`, `GET /admin/benchmarks/cpu-scores`, `GET /admin/benchmarks/gpu-scores`, `GET /admin/benchmarks/default-scaling`
+
+Public estimation: `POST /fps-estimate`
 
 Both call the same services.
 
