@@ -19,6 +19,12 @@ src/app/modules/game/
   game.module.ts
   game.service.ts
   dto/
+
+src/app/modules/benchmark/
+  benchmark.module.ts      # Nest HTTP services (list definitions/scores)
+  benchmark.service.ts
+  dto/
+  # crawl/import CLI files also live here; they are not Nest providers
 ```
 
 - Services talk to Prisma and contain all business logic.
@@ -33,6 +39,7 @@ src/app/modules/admin/
   controllers/
     admin.hardware.controller.ts
     admin.game.controller.ts
+    admin.benchmark.controller.ts
 ```
 
 - Admin module **imports** domain modules and exposes admin-only HTTP routes.
@@ -48,7 +55,8 @@ src/app/modules/hardware/controllers/hardware.controller.ts
 ```
 
 Public routes: `GET /hardware/cpus`, `GET /hardware/gpus`  
-Admin routes: `GET /admin/hardware/cpus`, `GET /admin/hardware/gpus`
+Admin routes: `GET /admin/hardware/cpus`, `GET /admin/hardware/gpus`  
+Admin benchmarks: `GET /admin/benchmarks`, `GET /admin/benchmarks/cpu-scores`, `GET /admin/benchmarks/gpu-scores`
 
 Both call the same services.
 
