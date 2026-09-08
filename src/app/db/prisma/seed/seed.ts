@@ -4,6 +4,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../generated/prisma/client';
 
 import { seedBenchmarks } from './benchmarks';
+import { seedDefaultScaling } from './default-scaling';
 import { seedGames } from './games/game';
 import { seedCpus } from './hardware/cpu';
 import { seedGpus } from './hardware/gpu';
@@ -19,6 +20,7 @@ async function main() {
   await seedGpus(prisma);
   await seedCpus(prisma);
   await seedBenchmarks(prisma);
+  await seedDefaultScaling(prisma);
   await seedGames(prisma);
   console.log('Seed completed.');
 }

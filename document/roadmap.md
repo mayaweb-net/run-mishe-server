@@ -35,7 +35,7 @@
 - [x] ماژول‌های دامنه `hardware` / `game` + کنترلر ادمین (لیست با pagination/search ساده)
 - [ ] افزودن SQL دستی از [`data-model.md`](./data-model.md#چیزهایی-که-باید-دستی-به-migration-اضافه-شوند)
       (`pg_trgm` / `unaccent` و ایندکس‌های سرچ) به migration بعدی
-- [ ] seed جدول‌های ثابت: `DefaultScaling` (۲۴ ردیف)
+- [x] seed جدول‌های ثابت: `DefaultScaling` (۲۴ ردیف)
 - [ ] API عمومی سرچ: `GET /hardware/*` و `GET /games` با trigram
 
 **تمام‌شده وقتی:** `GET /hardware/gpus?q=3060` و `GET /games?q=cyber` جواب درست می‌دهند.

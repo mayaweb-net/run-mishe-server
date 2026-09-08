@@ -56,7 +56,7 @@ src/app/modules/hardware/controllers/hardware.controller.ts
 
 Public routes: `GET /hardware/cpus`, `GET /hardware/gpus`  
 Admin routes: `GET /admin/hardware/cpus`, `GET /admin/hardware/gpus`  
-Admin benchmarks: `GET /admin/benchmarks`, `GET /admin/benchmarks/cpu-scores`, `GET /admin/benchmarks/gpu-scores`
+Admin benchmarks: `GET /admin/benchmarks`, `GET /admin/benchmarks/cpu-scores`, `GET /admin/benchmarks/gpu-scores`, `GET /admin/benchmarks/default-scaling`
 
 Both call the same services.
 

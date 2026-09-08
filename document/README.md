@@ -111,9 +111,9 @@ limitingComponent = fpsCpu < fpsGpu ? "CPU" : "GPU"
       (پوشش آفلاین تقریبی: CPU ~۸۴٪، GPU ~۸۸٪ فیلدهای دارای متن)
 - [x] پایپلاین مستقل PassMark: crawl → JSONL → importer → `pnpm index:hardware`
 - [ ] اکستنشن‌های `pg_trgm` / `unaccent` و ایندکس‌های سرچ فازی (SQL دستی)
-- [ ] seed جدول‌های ثابت (`DefaultScaling`)
+- [x] seed جدول‌های ثابت (`DefaultScaling` — ۲۴ ردیف)
 - [ ] محاسبه‌ی `Game.demandTier` از روی سخت‌افزار recommended
-- [ ] موتور تخمین / «ران میشه؟»
+- [ ] موتور تخمین / «ران میشه؟» / FPS calculator
 - [x] ماژول‌های Nest: `hardware` + `game` (services) + `admin` (controllers)
 - [x] ماژول `benchmark` (کراولر/ایمپورتر مستقل از Nest runtime)
 - [x] ماژول `estimation` (فعلاً فقط hardware-index)
