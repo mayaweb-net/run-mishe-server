@@ -167,14 +167,24 @@ pnpm exec prisma db seed
 
 | منبع | کیفیت | `confidence` پیشنهادی |
 | --- | --- | --- |
+| [NotebookCheck](https://www.notebookcheck.net/) desktop gaming list | مسیر فعال — median چند ریویو، ۶ مقیاس هدف | 0.75 |
 | TechPowerUp GPU reviews | جدول FPS چند بازی × چند کارت، سخت‌افزار تست دقیقاً مشخص | 1.0 |
 | Tom's Hardware / Gamers Nexus / Computerbase | همان | 1.0 |
 | کانال‌های بنچمارک یوتیوب | حجم زیاد، سخت‌افزار مشخص، ولی تنظیمات گاهی مبهم | 0.6 – 0.7 |
 | ثبت کاربران | حجم بالقوه بالا، نویز زیاد | 0.4 |
 
-**استراتژی پیشنهادی برای شروع:** ۵۰ بازی محبوب × ۱۵ GPU پرتکرار × ۳ رزولوشن ≈ ۲۲۰۰ ردیف.
-با CSV دستی از ریویوهای معتبر. یکی دو هفته کار است و کل سیستم را از حالت حدسی خارج می‌کند.
-از GPU هایی شروع کن که بیشترین سرچ را دارند، نه از قوی‌ترین‌ها.
+**مسیر فعال (NotebookCheck):** ماتریس هدف = بازی‌های allowlist × ۶۰ GPU برتر دسکتاپ
+(`gamingIndex`) × یک CPU برتر (sentinel) × شش مقیاس
+(1080 Low/Med/High/Ultra، 1440 Ultra، 4K Ultra).
+
+```bash
+pnpm crawler:fps -- --limit-games 5 --dry-run
+pnpm crawler:fps
+pnpm import:fps
+```
+
+جزئیات: [`scripts/fps/README.md`](../scripts/fps/README.md).
+جداول NBC CPU ندارند؛ importer همیشه بالاترین CPU دسکتاپ DB را می‌چسباند.
 
 ### هشدار حقوقی
 
@@ -211,7 +221,7 @@ fetch  →  ImportRecord (payload خام)  →  normalize  →  match  →  upse
 6. games + requirements      (allowlist + Store)  ← الان در seed هست
 7. requirement options       (exact match روی alias مرحله ۳)  ← الان در seed هست
 8. demand tier (`pnpm index:demand-tier`) → از max gamingIndex GPUهای Recommended
-9. fps samples
+9. fps samples               (`pnpm crawler:fps` → `pnpm import:fps`)
 10. calibration job          → GameProfile / GameScaling
 ```
 ---

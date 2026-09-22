@@ -4,6 +4,7 @@ import { EstimationModule } from '@/app/modules/estimation/estimation.module';
 import { GameModule } from '@/app/modules/game/game.module';
 import { HardwareModule } from '@/app/modules/hardware/hardware.module';
 import { AdminBenchmarkController } from './controllers/admin.benchmark.controller';
+import { AdminFpsController } from './controllers/admin.fps.controller';
 import { AdminGameController } from './controllers/admin.game.controller';
 import { AdminHardwareController } from './controllers/admin.hardware.controller';
 
@@ -13,6 +14,7 @@ import { AdminHardwareController } from './controllers/admin.hardware.controller
     AdminHardwareController,
     AdminGameController,
     AdminBenchmarkController,
+    AdminFpsController,
   ],
 })
 export class AdminModule {}

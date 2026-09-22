@@ -55,7 +55,25 @@ export class GameService {
       this.prisma.game.count({ where }),
     ]);
 
-    const items: GameListItem[] = rows.map(mapGameListItem);
+    const gameIds = rows.map((row) => row.id);
+    const fpsGpuCountByGame = new Map<string, number>();
+    if (gameIds.length > 0) {
+      const distinctPairs = await this.prisma.fpsSample.findMany({
+        where: { gameId: { in: gameIds } },
+        select: { gameId: true, gpuId: true },
+        distinct: ['gameId', 'gpuId'],
+      });
+      for (const pair of distinctPairs) {
+        fpsGpuCountByGame.set(
+          pair.gameId,
+          (fpsGpuCountByGame.get(pair.gameId) ?? 0) + 1,
+        );
+      }
+    }
+
+    const items: GameListItem[] = rows.map((row) =>
+      mapGameListItem(row, fpsGpuCountByGame.get(row.id) ?? 0),
+    );
 
     return buildPaginatedResult(items, total, query.page, query.limit);
   }

@@ -26,6 +26,9 @@ export type GameListItem = {
   popularity: number | null;
   quality: DataQuality;
   hasConnectionIssue: boolean;
+  fpsSampleCount: number;
+  fpsGpuCount: number;
+  isCalibrated: boolean;
   minimum: RequirementSummary | null;
   recommended: RequirementSummary | null;
 };
@@ -64,6 +67,17 @@ export const gameListSelect = {
   steamAppId: true,
   popularity: true,
   quality: true,
+  profile: {
+    select: {
+      isCalibrated: true,
+      sampleCount: true,
+    },
+  },
+  _count: {
+    select: {
+      fpsSamples: true,
+    },
+  },
   requirements: {
     where: {
       tier: { in: [RequirementTier.MINIMUM, RequirementTier.RECOMMENDED] },
@@ -150,6 +164,7 @@ export function mapRequirementSummary(
 
 export function mapGameListItem(
   game: Prisma.GameGetPayload<{ select: typeof gameListSelect }>,
+  fpsGpuCount = 0,
 ): GameListItem {
   const minimum = game.requirements.find(
     (requirement) => requirement.tier === RequirementTier.MINIMUM,
@@ -180,6 +195,9 @@ export function mapGameListItem(
         (summary?.cpu != null && !summary.cpuLinked) ||
         (summary?.gpu != null && !summary.gpuLinked),
     ),
+    fpsSampleCount: game._count.fpsSamples,
+    fpsGpuCount,
+    isCalibrated: game.profile?.isCalibrated ?? false,
     minimum: minimumSummary,
     recommended: recommendedSummary,
   };

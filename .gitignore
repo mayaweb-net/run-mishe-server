@@ -64,6 +64,7 @@ dist/
 
 # Raw dumps are never committed. Generators emit the checked-in *-data.ts files.
 data/benchmarks/
+data/fps/
 src/app/db/prisma/seed/*.csv
 src/app/db/prisma/seed/hardware/*.csv
 src/app/db/prisma/seed/games/*.csv

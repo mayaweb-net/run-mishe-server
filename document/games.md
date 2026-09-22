@@ -14,7 +14,7 @@ pnpm exec tsx --tsconfig tsconfig.json src/app/db/prisma/seed/games/run-games-se
 
 - ردیف‌های تکراری در جدول زیر (BG3، Hogwarts، Lies of P، RE4 Remake) در allowlist یکتا شده‌اند.
 - غیر-Steam فعلاً stub بدون requirement: Valorant، Fortnite، Diablo IV، WoW، Minecraft، Alan Wake 2.
-- مرجع بعدی برای بنچمارک/FPS: notebookcheck
+- FPS: پایپلاین NotebookCheck — `pnpm crawler:fps` سپس `pnpm import:fps` (جزئیات در `scripts/fps/README.md`)
 
 | # | Game | Genre |
 | --- | --- | --- |

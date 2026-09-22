@@ -15,6 +15,7 @@ import { PrismaService } from '@/app/db/prisma/prisma.service';
 import { RedisService } from '@/app/db/redis/redis.service';
 import { buildPaginatedResult } from '@/app/common/types/paginated-result';
 import { ListDefaultScalingQueryDto } from './dto/list-default-scaling-query.dto';
+import { ListFpsSampleQueryDto } from './dto/list-fps-sample-query.dto';
 import { FpsEstimateDto } from './dto/fps-estimate.dto';
 import {
   COLD_RAM_NEED_GB,
@@ -50,6 +51,28 @@ const defaultScalingSelect = {
   multiplier: true,
   note: true,
 } satisfies Prisma.DefaultScalingSelect;
+
+const fpsSampleSelect = {
+  id: true,
+  resolution: true,
+  preset: true,
+  upscaler: true,
+  rayTracing: true,
+  frameGen: true,
+  ramGb: true,
+  avgFps: true,
+  onePercentLow: true,
+  minFps: true,
+  maxFps: true,
+  source: true,
+  sourceUrl: true,
+  confidence: true,
+  capturedAt: true,
+  createdAt: true,
+  game: { select: { id: true, slug: true, name: true } },
+  gpu: { select: { id: true, slug: true, name: true } },
+  cpu: { select: { id: true, slug: true, name: true } },
+} satisfies Prisma.FpsSampleSelect;
 
 const CACHE_TTL_SECONDS = 60 * 60 * 24;
 
@@ -126,6 +149,48 @@ export class EstimationService {
         select: defaultScalingSelect,
       }),
       this.prisma.defaultScaling.count({ where }),
+    ]);
+
+    return buildPaginatedResult(items, total, query.page, query.limit);
+  }
+
+  async listFpsSamples(query: ListFpsSampleQueryDto) {
+    const where: Prisma.FpsSampleWhereInput = {};
+    if (query.gameId) where.gameId = query.gameId;
+    if (query.gpuId) where.gpuId = query.gpuId;
+    if (query.source) where.source = query.source;
+    if (query.resolution) where.resolution = query.resolution;
+    if (query.preset) where.preset = query.preset;
+    if (query.hasOnePercentLow === 1) where.onePercentLow = { not: null };
+    if (query.hasOnePercentLow === 0) where.onePercentLow = null;
+    if (query.q?.trim()) {
+      const q = query.q.trim();
+      where.OR = [
+        { game: { name: { contains: q, mode: 'insensitive' } } },
+        { game: { slug: { contains: q, mode: 'insensitive' } } },
+        { gpu: { name: { contains: q, mode: 'insensitive' } } },
+        { cpu: { name: { contains: q, mode: 'insensitive' } } },
+        { source: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const orderBy: Prisma.FpsSampleOrderByWithRelationInput =
+      query.sortBy === 'gameName'
+        ? { game: { name: query.sortOrder } }
+        : query.sortBy === 'gpuName'
+          ? { gpu: { name: query.sortOrder } }
+          : { [query.sortBy]: query.sortOrder };
+
+    const skip = (query.page - 1) * query.limit;
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.fpsSample.findMany({
+        where,
+        orderBy,
+        skip,
+        take: query.limit,
+        select: fpsSampleSelect,
+      }),
+      this.prisma.fpsSample.count({ where }),
     ]);
 
     return buildPaginatedResult(items, total, query.page, query.limit);
