@@ -5,7 +5,10 @@ import { isAbsolute, join, resolve, sep } from 'node:path';
 import { parseArgs } from 'node:util';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@/app/db/generated/prisma/client';
-import { FpsImporter } from '@/app/modules/estimation/fps-ingest/fps-importer';
+import {
+  DEFAULT_TOP_GPU_LIMIT,
+  FpsImporter,
+} from '@/app/modules/estimation/fps-ingest/fps-importer';
 import {
   FPS_DATA_ROOT,
   readFpsJsonl,
@@ -42,7 +45,7 @@ async function main(): Promise<void> {
     allowPositionals: true,
     options: {
       'dry-run': { type: 'boolean', default: false },
-      'top-gpus': { type: 'string', default: '60' },
+      'top-gpus': { type: 'string', default: '100' },
     },
   });
 
@@ -72,7 +75,7 @@ async function main(): Promise<void> {
   try {
     const importer = new FpsImporter(prisma, {
       dryRun: values['dry-run'],
-      topGpuLimit: Number(values['top-gpus'] ?? 60),
+      topGpuLimit: Number(values['top-gpus'] ?? DEFAULT_TOP_GPU_LIMIT),
     });
     const { summary, missed } = await importer.import(records);
     console.log('\nFPS import completed');

@@ -9,7 +9,7 @@ Playwright fetch → HTML cache → Cheerio parse → JSONL → import:fps → F
 ## Target matrix
 
 - Games: curated allowlist titles that have a NotebookCheck game id
-- GPUs: top 60 desktop GPUs by `gamingIndex` (filter at import time)
+- GPUs: top 100 desktop GPUs by `gamingIndex` (filter at import time)
 - CPU: single best desktop CPU by `gamingIndex` (attached at import)
 - Settings: 1080p Low/Med/High/Ultra, 1440p Ultra, 4K Ultra
 - `upscaler=NONE`, no RT / frame-gen
@@ -48,7 +48,7 @@ data/fps/missed/notebookcheck/YYYY-MM-DD.jsonl
 pnpm index:hardware   # ensure gamingIndex exists
 pnpm import:fps -- --dry-run
 pnpm import:fps
-pnpm import:fps -- --top-gpus 60 data/fps/notebookcheck/2026-09-22.jsonl
+pnpm import:fps -- --top-gpus 100 data/fps/notebookcheck/2026-09-22.jsonl
 ```
 
 Creates an `ImportBatch` (`kind=fps`, `source=notebookcheck`) and upserts

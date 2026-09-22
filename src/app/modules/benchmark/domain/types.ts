@@ -37,12 +37,20 @@ export interface CatalogHardware {
   name: string;
   target: HardwareTarget;
   aliases?: string[];
+  /** Lower is better (e.g. Gpu.popularityRank). Used for residual VRAM picks. */
+  preferenceRank?: number | null;
+  /** Higher is better. Tie-break after preferenceRank. */
+  gamingIndex?: number | null;
 }
 
 export interface HardwareResolution {
   hardware: CatalogHardware | null;
   status: 'resolved' | 'unresolved';
-  method?: 'normalized-name' | 'alias' | 'safe-normalization';
+  method?:
+    | 'normalized-name'
+    | 'alias'
+    | 'safe-normalization'
+    | 'default-vram';
   reason?: string;
 }
 

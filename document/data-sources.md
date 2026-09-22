@@ -173,9 +173,11 @@ pnpm exec prisma db seed
 | کانال‌های بنچمارک یوتیوب | حجم زیاد، سخت‌افزار مشخص، ولی تنظیمات گاهی مبهم | 0.6 – 0.7 |
 | ثبت کاربران | حجم بالقوه بالا، نویز زیاد | 0.4 |
 
-**مسیر فعال (NotebookCheck):** ماتریس هدف = بازی‌های allowlist × ۶۰ GPU برتر دسکتاپ
+**مسیر فعال (NotebookCheck):** ماتریس هدف = بازی‌های allowlist × ۱۰۰ GPU برتر دسکتاپ
 (`gamingIndex`) × یک CPU برتر (sentinel) × شش مقیاس
 (1080 Low/Med/High/Ultra، 1440 Ultra، 4K Ultra).
+نام‌های NBC با `(Desktop)` و `8G`/`16G` قبل از match نرمال می‌شوند؛ مدل بدون VRAM
+به محبوب‌ترین SKU دسکتاپ همان مدل می‌رسد.
 
 ```bash
 pnpm crawler:fps -- --limit-games 5 --dry-run

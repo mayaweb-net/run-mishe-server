@@ -43,10 +43,21 @@ function addToIndex(
   index.set(key, rows);
 }
 
+function comparePreferred(a: CatalogHardware, b: CatalogHardware): number {
+  const aRank = a.preferenceRank ?? Number.POSITIVE_INFINITY;
+  const bRank = b.preferenceRank ?? Number.POSITIVE_INFINITY;
+  if (aRank !== bRank) return aRank - bRank;
+  const aIndex = a.gamingIndex ?? Number.NEGATIVE_INFINITY;
+  const bIndex = b.gamingIndex ?? Number.NEGATIVE_INFINITY;
+  if (aIndex !== bIndex) return bIndex - aIndex;
+  return a.slug.localeCompare(b.slug);
+}
+
 export class HardwareResolver {
   private readonly normalized = new Map<string, CatalogHardware[]>();
   private readonly aliases = new Map<string, CatalogHardware[]>();
   private readonly safe = new Map<string, CatalogHardware[]>();
+  private readonly byBase = new Map<string, CatalogHardware[]>();
 
   constructor(
     hardware: readonly CatalogHardware[],
@@ -58,6 +69,11 @@ export class HardwareResolver {
         addToIndex(this.aliases, normalizeHardwareName(alias), row);
       }
       addToIndex(this.safe, safeShortName(row.name, target), row);
+      addToIndex(
+        this.byBase,
+        stripVramToken(safeShortName(row.name, target)),
+        row,
+      );
     }
   }
 
@@ -77,12 +93,32 @@ export class HardwareResolver {
       return { hardware: alias[0], status: 'resolved', method: 'alias' };
     }
 
-    const safe = this.safe.get(safeShortName(sourceName, this.target)) ?? [];
+    const short = safeShortName(sourceName, this.target);
+    const safe = this.safe.get(short) ?? [];
     if (safe.length === 1) {
       return {
         hardware: safe[0],
         status: 'resolved',
         method: 'safe-normalization',
+      };
+    }
+
+    // Bare model without VRAM (or unmatched VRAM spelling) → default SKU.
+    const base = stripVramToken(short);
+    const siblings = this.byBase.get(base) ?? [];
+    if (siblings.length === 1) {
+      return {
+        hardware: siblings[0],
+        status: 'resolved',
+        method: 'default-vram',
+      };
+    }
+    if (siblings.length > 1 && short === base) {
+      const preferred = [...siblings].sort(comparePreferred)[0];
+      return {
+        hardware: preferred,
+        status: 'resolved',
+        method: 'default-vram',
       };
     }
 

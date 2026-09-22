@@ -10,11 +10,14 @@ import {
 import { normalizeHardwareName } from '@/app/common/hardware/normalize-hardware-name';
 import { HardwareResolver } from '@/app/modules/benchmark/domain/hardware-resolver';
 import type { CatalogHardware } from '@/app/modules/benchmark/domain/types';
+import { normalizeNotebookcheckGpuName } from './notebookcheck/normalize-gpu-name';
 import type {
   MissingFpsRecord,
   RawFpsSampleRecord,
   TopHardwareSelection,
 } from './types';
+
+export const DEFAULT_TOP_GPU_LIMIT = 100;
 
 export interface FpsImportSummary {
   processed: number;
@@ -95,7 +98,7 @@ export function isRawFpsSampleRecord(value: unknown): value is RawFpsSampleRecor
 
 export async function selectTopHardware(
   prisma: PrismaClient,
-  topGpuLimit = 60,
+  topGpuLimit = DEFAULT_TOP_GPU_LIMIT,
 ): Promise<TopHardwareSelection> {
   const gpus = await prisma.gpu.findMany({
     where: {
@@ -161,7 +164,7 @@ export class FpsImporter {
     const now = new Date().toISOString();
     const top = await selectTopHardware(
       this.prisma,
-      this.options.topGpuLimit ?? 60,
+      this.options.topGpuLimit ?? DEFAULT_TOP_GPU_LIMIT,
     );
     const topGpuIds = new Set(top.gpus.map((gpu) => gpu.id));
 
@@ -173,6 +176,8 @@ export class FpsImporter {
           slug: true,
           name: true,
           normalizedName: true,
+          vramGb: true,
+          gamingIndex: true,
           aliases: { select: { alias: true } },
         },
       })
@@ -183,6 +188,9 @@ export class FpsImporter {
       normalizedName: gpu.normalizedName,
       target: 'GPU' as const,
       aliases: gpu.aliases.map((alias) => alias.alias),
+      // Prefer higher VRAM when NBC omits capacity (e.g. RTX 3060 → 12 GB).
+      preferenceRank: gpu.vramGb == null ? null : -gpu.vramGb,
+      gamingIndex: gpu.gamingIndex,
     }));
     const resolver = new HardwareResolver(gpuCatalog, 'GPU');
 
@@ -225,7 +233,8 @@ export class FpsImporter {
         continue;
       }
 
-      const resolved = resolver.resolve(row.gpuName);
+      const gpuName = normalizeNotebookcheckGpuName(row.gpuName);
+      const resolved = resolver.resolve(gpuName);
       if (!resolved.hardware?.id) {
         summary.unresolvedGpu += 1;
         missed.push({
