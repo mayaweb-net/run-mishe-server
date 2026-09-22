@@ -86,13 +86,16 @@ pnpm exec tsx src/app/db/prisma/seed/hardware/verify.ts
 
 ## کاتالوگ بازی: وضعیت فعلی
 
-کاتالوگ بازی هم داخل مخزن است؛ فقط TypeScript تولیدشده، نه HTML/CSV خام:
+کاتالوگ بازی **allowlist محور** است (`document/games.md` → `seed/games/game-allowlist.ts`).
+دیگر از Top Steam Charts به‌عنوان منبع لیست استفاده نمی‌شود.
 
 | فایل | محتوا |
 | --- | --- |
-| `seed/games/game-data.ts` | ۲۳۴ بازی + requirementهای ساختاریافته |
+| `document/games.md` | لیست پیشنهادی انسانی (~۱۰۰ عنوان، با چند تکرار) |
+| `seed/games/game-allowlist.ts` | لیست یکتا + `steamAppId` (یا `null` برای غیر-Steam) |
+| `seed/games/game-data.ts` | ~۹۰ بازی Steam + requirementهای ساختاریافته |
 | `seed/games/types.ts` | تایپ `GameSeed` و `GameRequirementSeed` |
-| `seed/games/game.ts` | seeder (`Game` + `GameRequirement` + option matching) |
+| `seed/games/game.ts` | seeder + stubهای غیر-Steam + prune بازی‌های خارج از allowlist |
 | `seed/games/requirement-matcher.ts` | matching دقیق longest-match روی alias |
 | `seed/games/verify-requirements.ts` | گزارش پوشش آفلاین، بدون دیتابیس |
 
@@ -100,30 +103,25 @@ pnpm exec tsx src/app/db/prisma/seed/hardware/verify.ts
 
 | داده | منبع | یادداشت |
 | --- | --- | --- |
-| لیست و محبوبیت (`popularity`) | [Steam Charts](https://steamcharts.com/) top players | ۲۵۰ ردیف؛ ابزارها و launcherها حذف شدند |
+| لیست کاتالوگ | `game-allowlist.ts` / `document/games.md` | seed بازی‌های خارج از این لیست را حذف می‌کند |
 | نام، تاریخ، ژانر، سازنده، ناشر، کاور، توضیح کوتاه | Steam Store `appdetails` | `https://store.steampowered.com/api/appdetails?appids={id}` |
 | `pc_requirements` (min / recommended) | همان API | HTML خام در `steamSnapshot` نگه داشته می‌شود |
 | `GameRequirementOption` | matching روی `HardwareAlias` | فقط exact؛ fuzzy عمداً در seed نیست |
-
-یک اپ (`1329410`، MahjongSoul) از API با `success: false` برگشت؛ ردیف CSV نگه داشته شد ولی
-متادیتا/requirement جعلی ساخته نشد.
+| غیر-Steam (Valorant، Fortnite، …) | stub در seeder | بدون requirement؛ `steamAppId = null` |
 
 ### بازتولید کاتالوگ بازی
 
-ورودی‌های خام در `.temp/` می‌مانند و commit نمی‌شوند:
-
 ```bash
-# ۱) tbody جدول Steam Charts را در این مسیر بگذار
-#    .temp/steam-charts/game.html
-python scripts/parse_steam_charts.py
-# → .temp/steam-charts/game.csv
-
-# ۲) fetch استور (کش در .temp/steam-appdetails/)
-python scripts/build_game_seed.py
+# fetch استور بر اساس allowlist (کش در .temp/steam-appdetails/)
+python scripts/rebuild_game_seed_from_allowlist.py
 # → seed/games/game-data.ts
 
 pnpm exec tsx src/app/db/prisma/seed/games/verify-requirements.ts
+pnpm exec prisma db seed
 ```
+
+اسکریپت قدیمی `scripts/build_game_seed.py` هنوز از CSV استیم‌چارتس می‌خواند؛ برای کاتالوگ فعلی از
+`rebuild_game_seed_from_allowlist.py` استفاده کن.
 
 ---
 
@@ -210,7 +208,7 @@ fetch  →  ImportRecord (payload خام)  →  normalize  →  match  →  upse
    - تعریف‌ها: seed `benchmarks.ts` (+ gpuark در seed GPU)
    - اسکور PassMark: crawl → JSONL → `pnpm import:benchmarks`
 5. hardware-index job (`pnpm index:hardware`) → gamingIndex پر می‌شود
-6. games + requirements      (Steam Charts + Store)  ← الان در seed هست
+6. games + requirements      (allowlist + Store)  ← الان در seed هست
 7. requirement options       (exact match روی alias مرحله ۳)  ← الان در seed هست
 8. demand tier (`pnpm index:demand-tier`) → از max gamingIndex GPUهای Recommended
 9. fps samples

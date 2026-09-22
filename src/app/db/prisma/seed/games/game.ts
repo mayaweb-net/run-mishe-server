@@ -6,6 +6,7 @@ import {
 } from '../../../generated/prisma/client';
 
 import { slugify } from '../hardware/shared';
+import { GAME_ALLOWLIST, GAME_ALLOWLIST_STEAM_IDS } from './game-allowlist';
 import { GAME_SEED } from './game-data';
 import {
   matchRequirementHardware,
@@ -139,6 +140,18 @@ async function syncRequirementOptions(
 
 export async function seedGames(prisma: PrismaClient): Promise<void> {
   const slugs = gameSlugs();
+  const allowlistSlugs = GAME_ALLOWLIST.map((entry) => slugify(entry.name));
+
+  // Drop everything outside the curated Steam IDs first so slug updates from
+  // the allowlist cannot collide with leftover Steam Charts rows.
+  const prunedUpFront = await prisma.game.deleteMany({
+    where: {
+      NOT: {
+        steamAppId: { in: [...GAME_ALLOWLIST_STEAM_IDS] },
+      },
+    },
+  });
+
   const aliases: RequirementAlias[] = (
     await prisma.hardwareAlias.findMany({
       select: {
@@ -247,10 +260,53 @@ export async function seedGames(prisma: PrismaClient): Promise<void> {
     }
   }
 
+  // Non-Steam catalog stubs (Valorant, Fortnite, …) — no Steam requirements.
+  let nonSteamCount = 0;
+  for (const entry of GAME_ALLOWLIST) {
+    if (entry.steamAppId != null) continue;
+    const slug = slugify(entry.name);
+    const genres = entry.genre
+      .split('/')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    await prisma.game.upsert({
+      where: { slug },
+      create: {
+        slug,
+        name: entry.name,
+        genres,
+        isPopular: true,
+        isPublished: true,
+        quality: DataQuality.IMPORTED,
+        sourceName: 'Curated allowlist',
+        sourceUrl: null,
+      },
+      update: {
+        name: entry.name,
+        genres,
+        isPopular: true,
+        isPublished: true,
+      },
+    });
+    nonSteamCount += 1;
+  }
+
+  const prunedTail = await prisma.game.deleteMany({
+    where: {
+      NOT: {
+        OR: [
+          { steamAppId: { in: [...GAME_ALLOWLIST_STEAM_IDS] } },
+          { slug: { in: allowlistSlugs } },
+        ],
+      },
+    },
+  });
+
   console.log(
-    `Game seed complete: ${GAME_SEED.length} games, ` +
+    `Game seed complete: ${GAME_SEED.length} Steam + ${nonSteamCount} non-Steam games, ` +
       `${requirementCount} requirement tiers, ` +
-      `${coverage.CPU.options} CPU and ${coverage.GPU.options} GPU options.`,
+      `${coverage.CPU.options} CPU and ${coverage.GPU.options} GPU options, ` +
+      `pruned ${prunedUpFront.count + prunedTail.count} off-list games.`,
   );
   console.log(
     `Requirement coverage: CPU ${coverage.CPU.matchedFields}/` +

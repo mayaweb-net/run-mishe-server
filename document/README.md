@@ -106,7 +106,7 @@ limitingComponent = fpsCpu < fpsGpu ? "CPU" : "GPU"
 - [x] کاتالوگ سخت‌افزار: ۲۵۰ GPU و ۲۸۶ CPU، seed شده و روی Postgres واقعی تست شده
 - [x] `Gpu.gamingIndex` از job ایندکس (GPU Ark + PassMark G3D)
 - [x] `Cpu.gamingIndex` از job ایندکس (PassMark single + multi) — تقریباً همه‌ی کاتالوگ
-- [x] کاتالوگ بازی: ۲۳۴ بازی محبوب Steam Charts + requirementهای Steam Store
+- [x] کاتالوگ بازی: ۹۶ بازی allowlist (`document/games.md`) + requirementهای Steam Store
 - [x] matching دقیق CPU/GPU روی متن requirement → `GameRequirementOption`
       (پوشش آفلاین تقریبی: CPU ~۸۴٪، GPU ~۸۸٪ فیلدهای دارای متن)
 - [x] پایپلاین مستقل PassMark: crawl → JSONL → importer → `pnpm index:hardware`

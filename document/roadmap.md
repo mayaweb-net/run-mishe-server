@@ -17,7 +17,7 @@
 | --- | ---: | --- |
 | ۰ پایه‌ی دیتا | ~۷۰٪ | اسکیما و seed هست؛ trigram و public search و DefaultScaling مانده |
 | ۱ کاتالوگ سخت‌افزار | ~۹۵٪ | کاتالوگ + PassMark + `gamingIndex` CPU/GPU؛ ESTIMATED fallback مانده |
-| ۲ کاتالوگ بازی | ~۹۵٪ | ۲۳۴ بازی + matching خوب؛ `demandTier` از recommended GPU |
+| ۲ کاتالوگ بازی | ~۹۵٪ | ۹۶ بازی allowlist (`document/games.md`)؛ `demandTier` از recommended GPU |
 
 | ۳ «ران میشه؟» | ۰٪ | هنوز شروع نشده |
 | ۴+ | در حال شروع | cold-start FPS: engine + `POST /fps-estimate` + `/fps` |
@@ -70,7 +70,7 @@
 
 ## فاز ۲ — کاتالوگ بازی · ~۱ هفته
 
-- [x] لیست محبوبیت از Steam Charts (۲۵۰ ردیف، ۱۶ غیر‌بازی حذف شد → ۲۳۴ بازی)
+- [x] لیست کاتالوگ از `document/games.md` / `game-allowlist.ts` (۹۶ عنوان یکتا؛ خارج از لیست prune می‌شود)
 - [x] fetch متادیتا و `pc_requirements` از Steam Store API → `seed/games/game-data.ts`
 - [x] seed `Game` + `GameRequirement` (min/recommended)
 - [x] matching دقیق alias روی متن requirement → `GameRequirementOption`
