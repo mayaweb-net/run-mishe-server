@@ -114,7 +114,7 @@
 
 - [x] `estimation.engine.ts` به‌صورت توابع خالص + تست
 - [ ] seed دستی `FpsSample` (۵۰ بازی × ۱۵ GPU × ۳ رزولوشن)
-- [ ] `calibration.job.ts`
+- [x] `calibration.job.ts` (`pnpm index:calibrate`)
 - [x] `POST /fps-estimate` با کش Redis (cold-start از `demandTier` + `DefaultScaling`)
 - [x] وصل‌کردن `/fps` و حذف `mockResolutions` از `src/config/fps-calculator.ts`
 - [x] نمایش برچسب اطمینان در UI (`تخمینی` / متوسط / بالا)

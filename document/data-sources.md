@@ -224,7 +224,7 @@ fetch  →  ImportRecord (payload خام)  →  normalize  →  match  →  upse
 7. requirement options       (exact match روی alias مرحله ۳)  ← الان در seed هست
 8. demand tier (`pnpm index:demand-tier`) → از max gamingIndex GPUهای Recommended
 9. fps samples               (`pnpm crawler:fps` → `pnpm import:fps`)
-10. calibration job          → GameProfile / GameScaling
+10. calibration job          (`pnpm index:calibrate`) → GameProfile / GameScaling
 ```
 ---
 

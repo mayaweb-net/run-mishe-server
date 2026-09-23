@@ -16,7 +16,10 @@ import { RedisService } from '@/app/db/redis/redis.service';
 import { buildPaginatedResult } from '@/app/common/types/paginated-result';
 import { ListDefaultScalingQueryDto } from './dto/list-default-scaling-query.dto';
 import { ListFpsSampleQueryDto } from './dto/list-fps-sample-query.dto';
+import { CreateFpsSamplesDto } from './dto/create-fps-samples.dto';
+import { UpdateFpsSampleDto } from './dto/update-fps-sample.dto';
 import { FpsEstimateDto } from './dto/fps-estimate.dto';
+import { fpsDedupeKey } from './fps-ingest/fps-importer';
 import {
   COLD_RAM_NEED_GB,
   DEFAULT_ESTIMATE_RESOLUTIONS,
@@ -196,6 +199,216 @@ export class EstimationService {
     return buildPaginatedResult(items, total, query.page, query.limit);
   }
 
+  async createManualFpsSamples(dto: CreateFpsSamplesDto) {
+    const [game, cpu, gpu] = await Promise.all([
+      this.prisma.game.findUnique({
+        where: { id: dto.gameId },
+        select: { id: true },
+      }),
+      this.prisma.cpu.findUnique({
+        where: { id: dto.cpuId },
+        select: { id: true },
+      }),
+      this.prisma.gpu.findUnique({
+        where: { id: dto.gpuId },
+        select: { id: true },
+      }),
+    ]);
+    if (!game) throw new NotFoundException(`Game ${dto.gameId} not found`);
+    if (!cpu) throw new NotFoundException(`CPU ${dto.cpuId} not found`);
+    if (!gpu) throw new NotFoundException(`GPU ${dto.gpuId} not found`);
+
+    const source = dto.source?.trim() || 'manual';
+    const sourceUrl = dto.sourceUrl?.trim() || '';
+    const confidence = dto.confidence ?? 0.9;
+    const capturedAt = new Date();
+
+    let created = 0;
+    let updated = 0;
+    const items = [];
+
+    for (const entry of dto.entries) {
+      const upscaler = entry.upscaler ?? Upscaler.NONE;
+      const rayTracing = entry.rayTracing ?? false;
+      const frameGen = entry.frameGen ?? false;
+      const dedupeKey = fpsDedupeKey({
+        gameId: dto.gameId,
+        gpuId: dto.gpuId,
+        cpuId: dto.cpuId,
+        resolution: entry.resolution,
+        preset: entry.preset,
+        upscaler,
+        rayTracing,
+        frameGen,
+        source,
+        sourceUrl,
+      });
+
+      const data = {
+        gameId: dto.gameId,
+        gpuId: dto.gpuId,
+        cpuId: dto.cpuId,
+        resolution: entry.resolution,
+        preset: entry.preset,
+        upscaler,
+        rayTracing,
+        frameGen,
+        ramGb: entry.ramGb ?? null,
+        avgFps: entry.avgFps,
+        onePercentLow: entry.onePercentLow ?? null,
+        source,
+        sourceUrl: sourceUrl || null,
+        confidence,
+        capturedAt,
+        dedupeKey,
+      };
+
+      const existing = await this.prisma.fpsSample.findUnique({
+        where: { dedupeKey },
+        select: { id: true },
+      });
+
+      const row = existing
+        ? await this.prisma.fpsSample.update({
+            where: { id: existing.id },
+            data: {
+              avgFps: data.avgFps,
+              onePercentLow: data.onePercentLow,
+              ramGb: data.ramGb,
+              confidence: data.confidence,
+              capturedAt: data.capturedAt,
+              sourceUrl: data.sourceUrl,
+            },
+            select: fpsSampleSelect,
+          })
+        : await this.prisma.fpsSample.create({
+            data,
+            select: fpsSampleSelect,
+          });
+
+      if (existing) updated += 1;
+      else created += 1;
+      items.push(row);
+    }
+
+    return { items, created, updated, source };
+  }
+
+  async updateFpsSample(id: string, dto: UpdateFpsSampleDto) {
+    const existing = await this.prisma.fpsSample.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        gameId: true,
+        gpuId: true,
+        cpuId: true,
+        resolution: true,
+        preset: true,
+        upscaler: true,
+        rayTracing: true,
+        frameGen: true,
+        source: true,
+        sourceUrl: true,
+      },
+    });
+    if (!existing) throw new NotFoundException(`FpsSample ${id} not found`);
+
+    const next = {
+      gameId: dto.gameId ?? existing.gameId,
+      gpuId: dto.gpuId ?? existing.gpuId,
+      cpuId: dto.cpuId ?? existing.cpuId,
+      resolution: dto.resolution ?? existing.resolution,
+      preset: dto.preset ?? existing.preset,
+      upscaler: dto.upscaler ?? existing.upscaler,
+      rayTracing: dto.rayTracing ?? existing.rayTracing,
+      frameGen: dto.frameGen ?? existing.frameGen,
+      source: dto.source ?? existing.source,
+      sourceUrl:
+        dto.sourceUrl !== undefined
+          ? dto.sourceUrl
+          : existing.sourceUrl,
+    };
+
+    if (dto.gameId) {
+      const game = await this.prisma.game.findUnique({
+        where: { id: dto.gameId },
+        select: { id: true },
+      });
+      if (!game) throw new NotFoundException(`Game ${dto.gameId} not found`);
+    }
+    if (dto.cpuId) {
+      const cpu = await this.prisma.cpu.findUnique({
+        where: { id: dto.cpuId },
+        select: { id: true },
+      });
+      if (!cpu) throw new NotFoundException(`CPU ${dto.cpuId} not found`);
+    }
+    if (dto.gpuId) {
+      const gpu = await this.prisma.gpu.findUnique({
+        where: { id: dto.gpuId },
+        select: { id: true },
+      });
+      if (!gpu) throw new NotFoundException(`GPU ${dto.gpuId} not found`);
+    }
+
+    const dedupeKey = fpsDedupeKey({
+      gameId: next.gameId,
+      gpuId: next.gpuId,
+      cpuId: next.cpuId,
+      resolution: next.resolution,
+      preset: next.preset,
+      upscaler: next.upscaler,
+      rayTracing: next.rayTracing,
+      frameGen: next.frameGen,
+      source: next.source,
+      sourceUrl: next.sourceUrl ?? '',
+    });
+
+    const clash = await this.prisma.fpsSample.findFirst({
+      where: { dedupeKey, id: { not: id } },
+      select: { id: true },
+    });
+    if (clash) {
+      throw new BadRequestException(
+        'نمونهٔ دیگری با همین ترکیب بازی/سخت‌افزار/تنظیمات وجود دارد.',
+      );
+    }
+
+    return this.prisma.fpsSample.update({
+      where: { id },
+      data: {
+        gameId: next.gameId,
+        gpuId: next.gpuId,
+        cpuId: next.cpuId,
+        resolution: next.resolution,
+        preset: next.preset,
+        upscaler: next.upscaler,
+        rayTracing: next.rayTracing,
+        frameGen: next.frameGen,
+        source: next.source,
+        sourceUrl: next.sourceUrl,
+        dedupeKey,
+        ...(dto.avgFps !== undefined ? { avgFps: dto.avgFps } : {}),
+        ...(dto.onePercentLow !== undefined
+          ? { onePercentLow: dto.onePercentLow }
+          : {}),
+        ...(dto.ramGb !== undefined ? { ramGb: dto.ramGb } : {}),
+        ...(dto.confidence !== undefined ? { confidence: dto.confidence } : {}),
+      },
+      select: fpsSampleSelect,
+    });
+  }
+
+  async deleteFpsSample(id: string) {
+    const existing = await this.prisma.fpsSample.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) throw new NotFoundException(`FpsSample ${id} not found`);
+    await this.prisma.fpsSample.delete({ where: { id } });
+    return { id };
+  }
+
   async estimateFps(dto: FpsEstimateDto): Promise<FpsEstimateResponse> {
     const game = await this.resolveGame(dto);
     const cpu = await this.resolveCpu(dto);
@@ -218,8 +431,21 @@ export class EstimationService {
     const resolutions =
       dto.resolutions?.length ? dto.resolutions : DEFAULT_ESTIMATE_RESOLUTIONS;
 
+    const profileRow = await this.prisma.gameProfile.findUnique({
+      where: { gameId: game.id },
+    });
+
+    const isCalibrated = profileRow?.isCalibrated ?? false;
+    const confidence = confidenceFromCalibration({
+      isCalibrated,
+      rSquared: profileRow?.rSquared,
+      sampleCount: profileRow?.sampleCount ?? 0,
+    });
+
+    // Cache after we know calibration state so post-calibrate writes aren't masked.
     const cacheKey = [
       `est:v${ESTIMATION_ENGINE_VERSION}`,
+      `cal:${isCalibrated ? profileRow?.calibrationVersion ?? 0 : 0}`,
       game.id,
       game.demandTier,
       gpu.id,
@@ -238,23 +464,13 @@ export class EstimationService {
     const upscalerWarning = this.upscalerSupportWarning(gpu, upscaler);
     if (upscalerWarning) warnings.push(upscalerWarning);
 
-    const profileRow = await this.prisma.gameProfile.findUnique({
-      where: { gameId: game.id },
-    });
-
-    const isCalibrated = profileRow?.isCalibrated ?? false;
-    const confidence = confidenceFromCalibration({
-      isCalibrated,
-      rSquared: profileRow?.rSquared,
-      sampleCount: profileRow?.sampleCount ?? 0,
-    });
-
     const anchors = await this.loadRecommendedAnchors(game.id);
     let method: EstimateMethod;
     let profile: Coefficients;
     let recCpuInferred = false;
 
     if (isCalibrated && profileRow) {
+      // Prefer FpsSample-fitted GameProfile when calibration succeeded.
       method = 'calibrated';
       profile = {
         gpuCoef: profileRow.gpuCoef,

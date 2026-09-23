@@ -25,7 +25,7 @@ export type Upscaler =
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
 
 /** Bump when the FPS formula or cold-start tables change (invalidates Redis). */
-export const ESTIMATION_ENGINE_VERSION = 8;
+export const ESTIMATION_ENGINE_VERSION = 9;
 
 export const DEFAULT_BLEND_K = 8;
 
