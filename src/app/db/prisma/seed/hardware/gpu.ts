@@ -68,6 +68,9 @@ export const GPU_SERIES_ALIASES: Record<string, string[]> = {
   'nvidia-geforce-gts-450': ['450', 'nVidia 450'],
   'nvidia-geforce-6600': ['6600', 'NVidia 6600'],
   'amd-radeon-x1300': ['X1300', 'ATI X1300'],
+  'amd-radeon-x1900-xt': ['X1900', 'ATI X1900', 'Radeon X1900', 'X1900 XT'],
+  'nvidia-geforce-7900-gtx': ['Nvidia 7900', 'GeForce 7900', '7900 GTX', '7900'],
+  'nvidia-geforce-7600-gt': ['GeForce 7600', '7600 GT', 'NVIDIA GeForce 7600'],
   'amd-radeon-rx-6900-xt': [
     'AMD Radeon RX 6900 XT Halo Infinite',
     'Radeon RX 6900 XT Halo Infinite',

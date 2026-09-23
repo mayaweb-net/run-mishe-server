@@ -60,8 +60,11 @@ CPU_QUERY_RES = [
     re.compile(r"\ba(\d+)[-\s]?(\d{4}[a-z]*)\b", re.I),
     re.compile(r"\bphenom(?:\s+ii)?\s+x(\d)\s*[- ]?\s*(\d{4})\b", re.I),
     re.compile(r"\bphenom\s+x(\d)\s*[- ]?\s*(\d{4})\b", re.I),
+    # Steam often writes "Phenom 9850 Quad-Core" without the X4 token.
+    re.compile(r"\bphenom(?:\s+ii)?\s+(\d{4})\b", re.I),
     re.compile(r"\bpentium\s+g(\d{4})\b", re.I),
     re.compile(r"\bcore\s*2\s+duo\s+e(\d{4})\b", re.I),
+    re.compile(r"\bcore\s*2\s+quad\s+q(\d{4})\b", re.I),
     re.compile(r"\bathlon(?:\s+64)?\s*x2\s*(\d{4})\+\b", re.I),
 ]
 
@@ -79,6 +82,7 @@ GPU_QUERY_RES = [
     re.compile(r"\bgeforce\s+(\d{3,4})\b", re.I),
     re.compile(r"\b(?:amd|ati)\s+(\d{3,4})\b", re.I),
     re.compile(r"\bnvidia\s+(\d{3,4})\b", re.I),
+    re.compile(r"\b(?:ati\s+)?x(\d{3,4})\b", re.I),
 ]
 
 AMBIGUOUS_CPU = re.compile(
@@ -1146,6 +1150,60 @@ MANUAL_CPU: dict[str, dict[str, Any]] = {
         "maxMemoryGb": 16,
         "sourceUrl": "https://www.techpowerup.com/cpu-specs/phenom-x3-8650.c152",
     },
+    "amd phenom x4 9850": {
+        "name": "AMD Phenom X4 9850",
+        "vendor": "AMD",
+        "family": "Phenom",
+        "series": "Phenom X4",
+        "generation": None,
+        "codename": "Agena",
+        "architecture": "K10",
+        "socket": "AM2+",
+        "releaseYear": 2008,
+        "performanceCores": 4,
+        "efficiencyCores": 0,
+        "threads": 4,
+        "baseClockMhz": 2500,
+        "boostClockMhz": None,
+        "l2CacheMb": 2.0,
+        "l3CacheMb": 2.0,
+        "tdpWatt": 125,
+        "processNodeNm": 65,
+        "isUnlocked": False,
+        "isX3d": False,
+        "integratedGraphics": None,
+        "memoryTypes": ["DDR2"],
+        "memoryChannels": 2,
+        "maxMemoryGb": 16,
+        "sourceUrl": "https://www.techpowerup.com/cpu-specs/phenom-x4-9850.c27",
+    },
+    "intel core 2 quad q6600": {
+        "name": "Intel Core 2 Quad Q6600",
+        "vendor": "INTEL",
+        "family": "Core 2 Quad",
+        "series": "Core 2 Quad",
+        "generation": None,
+        "codename": "Kentsfield",
+        "architecture": "Core",
+        "socket": "LGA 775",
+        "releaseYear": 2007,
+        "performanceCores": 4,
+        "efficiencyCores": 0,
+        "threads": 4,
+        "baseClockMhz": 2400,
+        "boostClockMhz": None,
+        "l2CacheMb": 8.0,
+        "l3CacheMb": None,
+        "tdpWatt": 105,
+        "processNodeNm": 65,
+        "isUnlocked": False,
+        "isX3d": False,
+        "integratedGraphics": None,
+        "memoryTypes": ["DDR2"],
+        "memoryChannels": 2,
+        "maxMemoryGb": 8,
+        "sourceUrl": "https://www.techpowerup.com/cpu-specs/core-2-quad-q6600.c318",
+    },
     "amd athlon 64 x2 5600+": {
         "name": "AMD Athlon 64 X2 5600+",
         "vendor": "AMD",
@@ -1234,12 +1292,16 @@ MANUAL_CPU_BY_NAME = {normalize(entry["name"]): entry for entry in MANUAL_CPU.va
 CPU_TARGETS = [
     "Intel Core 2 Duo E8400",
     "Intel Core 2 Duo E6400",
+    "Intel Core 2 Quad Q6600",
     "AMD Phenom X3 8650",
+    "AMD Phenom X4 9850",
     "AMD Athlon 64 X2 5600+",
 ]
 
 GPU_KEY_ALIASES = {
     "geforce 760": "geforce gtx 760",
+    "geforce 7600": "geforce 7600 gt",
+    "geforce 7900": "geforce 7900 gtx",
     "geforce 970": "geforce gtx 970",
     "geforce 2060": "geforce rtx 2060",
     "geforce 6600": "geforce 6600",
@@ -1250,6 +1312,8 @@ GPU_KEY_ALIASES = {
     "geforce gtx 7970": "radeon hd 7970",
     "geforce 6800": "geforce 6600",
     "radeon hd 8800": "radeon hd 7970",
+    "ati x1900": "radeon x1900 xt",
+    "x1900": "radeon x1900 xt",
 }
 
 # GPU canonical names to pull from TechPowerUp reference CSV (2025-12.csv).
@@ -1263,6 +1327,8 @@ GPU_TARGETS = [
     "GeForce 9800 GT",
     "GeForce 9600 GT",
     "GeForce 8600 GT",
+    "GeForce 7900 GTX",
+    "GeForce 7600 GT",
     "GeForce 6600",
     "GeForce GTX 450",
     "GeForce GTX 550 Ti",
@@ -1282,6 +1348,7 @@ GPU_TARGETS = [
     "Radeon R7 240",
     "Radeon RX 580",
     "Radeon X1300",
+    "Radeon X1900 XT",
 ]
 
 
@@ -1319,11 +1386,16 @@ def extract_queries(kind: str, raw_text: str) -> set[str]:
                     found.add(f"amd fx-{match.group(1)}")
                 elif "a(" in pattern.pattern:
                     found.add(f"amd a{match.group(1)}-{match.group(2).lower()}")
-                elif "phenom" in pattern.pattern:
+                elif "phenom" in pattern.pattern and match.lastindex == 2:
                     found.add(f"amd phenom x{match.group(1)} {match.group(2)}")
+                elif "phenom" in pattern.pattern and match.lastindex == 1:
+                    # Bare model number — assume X4 for common Steam listings.
+                    found.add(f"amd phenom x4 {match.group(1)}")
                 elif "pentium" in pattern.pattern:
                     found.add(f"intel pentium g{match.group(1)}")
-                elif "core 2" in pattern.pattern:
+                elif "core\\s*2\\s+quad" in pattern.pattern:
+                    found.add(f"intel core 2 quad q{match.group(1)}")
+                elif "core 2" in pattern.pattern or "core\\s*2\\s+duo" in pattern.pattern:
                     found.add(f"intel core 2 duo e{match.group(1)}")
                 elif "athlon" in pattern.pattern:
                     found.add(f"amd athlon 64 x2 {match.group(1)}+")
@@ -1349,6 +1421,10 @@ def extract_queries(kind: str, raw_text: str) -> set[str]:
                     found.add(f"geforce gtx {match.group(1).strip().lower()}")
                 elif "amd|ati" in pattern.pattern:
                     found.add(f"radeon hd {match.group(1).strip().lower()}")
+                elif "ati\\s+)?" in pattern.pattern or pattern.pattern.endswith(
+                    "x(\\d{3,4})\\b"
+                ):
+                    found.add(f"radeon x{match.group(1).strip().lower()}")
                 elif pattern.pattern.startswith("\\bgeforce\\s+(\\d"):
                     found.add(f"geforce {match.group(1).strip().lower()}")
                 else:

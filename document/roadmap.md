@@ -8,23 +8,22 @@
 | بخش | وضعیت |
 | --- | --- |
 | `run-mishe-server` | NestJS + Fastify + Prisma + Postgres + Redis. ماژول‌های `hardware` / `game` / `admin` / `benchmark` فعال‌اند |
-| `run-mishe-client` | Next، صفحات `/` و `/review` و `/fps` هنوز عمدتاً از mock تغذیه‌اند |
+| `run-mishe-client` | Next، `/review` و `/fps` و `/c/{code}` روی API واقعی |
 | `run-mishe-admin` | لیست CPU / GPU / Game از API ادمین |
 
 ### پیشرفت تقریبی نسبت به کل نقشه راه تا فاز ۳ (اولین انتشار)
 
 | فاز | درصد تقریبی | یادداشت |
 | --- | ---: | --- |
-| ۰ پایه‌ی دیتا | ~۷۰٪ | اسکیما و seed هست؛ trigram و public search و DefaultScaling مانده |
+| ۰ پایه‌ی دیتا | ~۹۵٪ | اسکیما + seed + DefaultScaling + `pg_trgm` search |
 | ۱ کاتالوگ سخت‌افزار | ~۹۵٪ | کاتالوگ + PassMark + `gamingIndex` CPU/GPU؛ ESTIMATED fallback مانده |
 | ۲ کاتالوگ بازی | ~۹۵٪ | ۹۶ بازی allowlist (`document/games.md`)؛ `demandTier` از recommended GPU |
+| ۳ «ران میشه؟» | ~۱۰۰٪ | `POST /run-check` + `CheckSnapshot` + `/review` + `/c/{code}` |
+| ۴+ | ~۸۵٪ | cold-start + calibration + `/fps`؛ seed دستی FPS و FpsSubmission مانده |
 
-| ۳ «ران میشه؟» | ۰٪ | هنوز شروع نشده |
-| ۴+ | در حال شروع | cold-start FPS: engine + `POST /fps-estimate` + `/fps` |
+**جمع تا اولین فیچر قابل انتشار (فاز ۳):** مسیر دیتا/زیرساخت عملاً بسته است؛ محصول `/review` و `/fps` روی API واقعی‌اند.
 
-**جمع تا اولین فیچر قابل انتشار (فاز ۳):** حدود **۶۵–۷۰٪** مسیر دیتا/زیرساخت؛ خود محصول هنوز ۰٪.
-
-**قدم بعدی پیشنهادی:** شروع فاز ۴ (موتور cold-start FPS) یا فاز ۳ (`POST /run-check`).
+**قدم بعدی پیشنهادی:** فاز ۵ (ارسال FPS کاربر / `FpsSubmission`) یا ESTIMATED fallback برای قطعات بدون بنچمارک.
 
 ---
 
@@ -34,10 +33,10 @@
 - [x] رفع ناهماهنگی مسیر seed در `prisma.config.ts` (به `seed/seed.ts` اشاره می‌کند)
 - [x] migration اولیه (`20260830182000_init`)
 - [x] ماژول‌های دامنه `hardware` / `game` + کنترلر ادمین (لیست با pagination/search ساده)
-- [ ] افزودن SQL دستی از [`data-model.md`](./data-model.md#چیزهایی-که-باید-دستی-به-migration-اضافه-شوند)
+- [x] افزودن SQL دستی از [`data-model.md`](./data-model.md#چیزهایی-که-باید-دستی-به-migration-اضافه-شوند)
       (`pg_trgm` / `unaccent` و ایندکس‌های سرچ) به migration بعدی
 - [x] seed جدول‌های ثابت: `DefaultScaling` (۲۴ ردیف)
-- [ ] API عمومی سرچ: `GET /hardware/*` و `GET /games` با trigram
+- [x] API عمومی سرچ: `GET /hardware/*` و `GET /games` با trigram
 
 **تمام‌شده وقتی:** `GET /hardware/gpus?q=3060` و `GET /games?q=cyber` جواب درست می‌دهند.
 
@@ -98,10 +97,10 @@
 
 اولین فیچر واقعی. **هیچ دیتای FPS ای لازم ندارد** — فقط مقایسه‌ی index.
 
-- [ ] `POST /run-check`
-- [ ] `CheckSnapshot` و مسیر `/c/{code}`
-- [ ] جایگزینی `getRunCheckResult` در `src/config/run-check.ts` با فراخوانی API
-- [ ] تبدیل ورودی‌های متن‌آزاد `run-check-page.tsx` به autocomplete
+- [x] `POST /run-check`
+- [x] `CheckSnapshot` و مسیر `/c/{code}`
+- [x] جایگزینی `getRunCheckResult` در `src/config/run-check.ts` با فراخوانی API
+- [x] تبدیل ورودی‌های متن‌آزاد `run-check-page.tsx` به autocomplete
 
 منطق: نتیجه از مقایسه‌ی `gamingIndex` کاربر با بیشترین `gamingIndex` بین option های هر tier
 درمی‌آید (زیر minimum / بین min و recommended / بالای recommended)، به‌علاوه‌ی چک RAM و VRAM.

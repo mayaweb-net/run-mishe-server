@@ -95,8 +95,8 @@ limitingComponent = fpsCpu < fpsGpu ? "CPU" : "GPU"
 
 ## وضعیت فعلی
 
-**الان کجایی:** انتهای فاز ۱. کاتالوگ + PassMark import + `gamingIndex` برای CPU و GPU پر است.
-قدم منطقی بعدی: seedی `DefaultScaling` / جمع‌وجور فاز ۰، یا شروع فاز ۳ («ران میشه؟»).
+**الان کجایی:** فاز ۳ آماده است؛ سرچ فازی `pg_trgm` روی `/hardware/*` و `/games` وصل است؛ پوشش matching ~۹۲٪ CPU / ~۹۵٪ GPU.
+قدم منطقی بعدی: فاز ۵ (`FpsSubmission`) یا ESTIMATED fallback برای قطعات بدون بنچمارک.
 
 جزئیات فازها: [`roadmap.md`](./roadmap.md)
 
@@ -110,13 +110,13 @@ limitingComponent = fpsCpu < fpsGpu ? "CPU" : "GPU"
 - [x] matching دقیق CPU/GPU روی متن requirement → `GameRequirementOption`
       (پوشش آفلاین تقریبی: CPU ~۸۴٪، GPU ~۸۸٪ فیلدهای دارای متن)
 - [x] پایپلاین مستقل PassMark: crawl → JSONL → importer → `pnpm index:hardware`
-- [ ] اکستنشن‌های `pg_trgm` / `unaccent` و ایندکس‌های سرچ فازی (SQL دستی)
+- [x] اکستنشن‌های `pg_trgm` / `unaccent` و ایندکس‌های سرچ فازی (SQL دستی)
 - [x] seed جدول‌های ثابت (`DefaultScaling` — ۲۴ ردیف)
 - [x] محاسبه‌ی `Game.demandTier` از روی سخت‌افزار recommended
       (`pnpm index:demand-tier`)
 - [x] موتور تخمین cold-start / `POST /fps-estimate` / صفحه `/fps`
-- [ ] «ران میشه؟» (`POST /run-check`)
-- [ ] کالیبراسیون با `FpsSample`
+- [x] «ران میشه؟» (`POST /run-check` + `/c/{code}`)
+- [x] کالیبراسیون با `FpsSample` (`pnpm index:calibrate` / دکمه ادمین)
 - [x] ماژول‌های Nest: `hardware` + `game` (services) + `admin` (controllers)
 - [x] ماژول `benchmark` (کراولر/ایمپورتر مستقل از Nest runtime)
 - [x] ماژول `estimation` (فعلاً فقط hardware-index)

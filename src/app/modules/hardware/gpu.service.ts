@@ -6,6 +6,10 @@ import {
   normalizeHardwareName,
   slugifyHardwareName,
 } from '@/app/common/hardware/normalize-hardware-name';
+import {
+  orderByIds,
+  searchGpuIdsByTrigram,
+} from '@/app/common/search/trigram-search';
 import { ListGpuQueryDto } from './dto/list-gpu-query.dto';
 import { CreateGpuDto } from './dto/create-gpu.dto';
 import { UpdateGpuDto } from './dto/update-gpu.dto';
@@ -93,9 +97,37 @@ export class GpuService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(query: ListGpuQueryDto) {
+    const search = query.q?.trim();
+    const skip = (query.page - 1) * query.limit;
+
+    if (search) {
+      const { ids, total } = await searchGpuIdsByTrigram(this.prisma, search, {
+        limit: query.limit,
+        offset: skip,
+        vendor: query.vendor,
+        formFactor: query.formFactor,
+        quality: query.quality,
+      });
+
+      if (ids.length === 0) {
+        return buildPaginatedResult([], total, query.page, query.limit);
+      }
+
+      const rows = await this.prisma.gpu.findMany({
+        where: { id: { in: ids } },
+        select: gpuListSelect,
+      });
+
+      return buildPaginatedResult(
+        orderByIds(rows, ids),
+        total,
+        query.page,
+        query.limit,
+      );
+    }
+
     const where = this.buildWhere(query);
     const orderBy = this.buildOrderBy(query);
-    const skip = (query.page - 1) * query.limit;
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.gpu.findMany({

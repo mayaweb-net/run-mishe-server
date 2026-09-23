@@ -35,7 +35,19 @@ const CPU_SERIES_ALIASES: Record<string, string[]> = {
     'Intel Core i7 or AMD Ryzen 5',
   ],
   'intel-core-2-duo-e8400': ['Core 2 Duo', 'Intel Core 2 Duo'],
+  'intel-core-2-quad-q6600': [
+    'Core 2 Quad',
+    'Intel Core 2 Quad',
+    'Core 2 Quad Q6600',
+    'Q6600',
+  ],
   'amd-phenom-x3-8650': ['AMD Phenom X3 8650'],
+  'amd-phenom-x4-9850': [
+    'AMD Phenom 9850',
+    'Phenom 9850',
+    'AMD Phenom X4 9850',
+    'Phenom X4 9850',
+  ],
   'amd-fx-8370e': ['AMD FX FX 8370E', 'FX FX 8370E'],
   'amd-a10-7860k': ['AMD A 10 7860k', 'A 10 7860k'],
   'intel-core-i7-9700f': [
@@ -76,11 +88,12 @@ function cpuAliasVariants(cpu: CpuSeed): string[] {
     variants.push(`A${aSeriesMatch[1]}-${aSeriesMatch[2]}`);
   }
 
-  const phenomMatch = cpu.name.match(/Phenom II X(\d)\s+(\d+)/i);
+  const phenomMatch = cpu.name.match(/Phenom(?:\s+II)?\s+X(\d)\s+(\d+)/i);
   if (phenomMatch) {
     variants.push(
       `Phenom II X${phenomMatch[1]} ${phenomMatch[2]}`,
       `Phenom X${phenomMatch[1]} ${phenomMatch[2]}`,
+      `Phenom ${phenomMatch[2]}`,
     );
   }
 

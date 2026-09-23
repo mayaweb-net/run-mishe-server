@@ -303,26 +303,10 @@ CPU:  intel core i5 13600k           ← نام کامل
 نتیجه با `matchScore = 1` و `needsReview = false` در `GameRequirementOption` upsert می‌شود.
 کلید idempotency: `@@unique([requirementId, kind, matchedText])`.
 
-### سرچ API کاربر (هنوز ساخته نشده)
+### سرچ API کاربر
 
-برای autocomplete کاربر سه مرحله‌ی زیر باقی است:
-
-```ts
-// ۱. تطابق دقیق روی alias
-const exact = await findAlias(kind, normalized);
-if (exact) return { hardware: exact, score: 1.0 };
-
-// ۲. تطابق فازی با pg_trgm
-const fuzzy = await trigramSearch(kind, normalized);   // similarity > 0.45
-if (fuzzy.length === 1 || fuzzy[0].score - fuzzy[1].score > 0.15) {
-  return { hardware: fuzzy[0], score: fuzzy[0].score };
-}
-
-// ۳. مبهم — ذخیره کن ولی برای بازبینی flag بزن
-return { hardware: fuzzy[0] ?? null, score: fuzzy[0]?.score ?? 0, needsReview: true };
-```
-
-آستانه‌ی `needsReview` را روی `matchScore < 0.75` بگذار.
+Autocomplete روی `GET /hardware/cpus|gpus` و `GET /games` با `pg_trgm` + ILIKE fallback
+(`src/app/common/search/trigram-search.ts`). مرتب‌سازی بر اساس `similarity`.
 
 ### parse کردن متن requirement
 

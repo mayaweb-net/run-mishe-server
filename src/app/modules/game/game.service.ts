@@ -11,6 +11,10 @@ import {
 import { PrismaService } from '@/app/db/prisma/prisma.service';
 import { buildPaginatedResult } from '@/app/common/types/paginated-result';
 import { slugifyHardwareName } from '@/app/common/hardware/normalize-hardware-name';
+import {
+  orderByIds,
+  searchGameIdsByTrigram,
+} from '@/app/common/search/trigram-search';
 import { ListGameQueryDto } from './dto/list-game-query.dto';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
@@ -40,20 +44,50 @@ export class GameService {
   ) {}
 
   async list(query: ListGameQueryDto) {
-    const where = this.buildWhere(query);
-    const orderBy = this.buildOrderBy(query);
+    const search = query.q?.trim();
     const skip = (query.page - 1) * query.limit;
+    const useTrigram = Boolean(search) && !query.reviewStatus;
 
-    const [rows, total] = await this.prisma.$transaction([
-      this.prisma.game.findMany({
-        where,
-        orderBy,
-        skip,
-        take: query.limit,
+    let rows: Array<Prisma.GameGetPayload<{ select: typeof gameListSelect }>>;
+    let total: number;
+
+    if (useTrigram && search) {
+      const { ids, total: searchTotal } = await searchGameIdsByTrigram(
+        this.prisma,
+        search,
+        {
+          limit: query.limit,
+          offset: skip,
+          extraWhereSql: this.buildGameFilterSql(query),
+        },
+      );
+      total = searchTotal;
+
+      if (ids.length === 0) {
+        return buildPaginatedResult([], total, query.page, query.limit);
+      }
+
+      const found = await this.prisma.game.findMany({
+        where: { id: { in: ids } },
         select: gameListSelect,
-      }),
-      this.prisma.game.count({ where }),
-    ]);
+      });
+      rows = orderByIds(found, ids);
+    } else {
+      const where = this.buildWhere(query);
+      const orderBy = this.buildOrderBy(query);
+      const [found, count] = await this.prisma.$transaction([
+        this.prisma.game.findMany({
+          where,
+          orderBy,
+          skip,
+          take: query.limit,
+          select: gameListSelect,
+        }),
+        this.prisma.game.count({ where }),
+      ]);
+      rows = found;
+      total = count;
+    }
 
     const gameIds = rows.map((row) => row.id);
     const fpsGpuCountByGame = new Map<string, number>();
@@ -387,6 +421,31 @@ export class GameService {
     }
 
     return this.findById(gameId);
+  }
+
+  private buildGameFilterSql(query: ListGameQueryDto): Prisma.Sql {
+    return Prisma.sql`
+      ${
+        query.demandTier
+          ? Prisma.sql`AND g."demandTier" = ${query.demandTier}::"demand_tier"`
+          : Prisma.empty
+      }
+      ${
+        query.isPopular !== undefined
+          ? Prisma.sql`AND g."isPopular" = ${query.isPopular}`
+          : Prisma.empty
+      }
+      ${
+        query.isPublished !== undefined
+          ? Prisma.sql`AND g."isPublished" = ${query.isPublished}`
+          : Prisma.empty
+      }
+      ${
+        query.quality
+          ? Prisma.sql`AND g.quality = ${query.quality}::"data_quality"`
+          : Prisma.empty
+      }
+    `;
   }
 
   private buildWhere(query: ListGameQueryDto): Prisma.GameWhereInput {

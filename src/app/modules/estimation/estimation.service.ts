@@ -5,8 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  CheckKind,
   Prisma,
   QualityPreset,
+  RequirementTier,
   ScreenResolution,
   Upscaler,
   type DemandTier,
@@ -19,6 +21,7 @@ import { ListFpsSampleQueryDto } from './dto/list-fps-sample-query.dto';
 import { CreateFpsSamplesDto } from './dto/create-fps-samples.dto';
 import { UpdateFpsSampleDto } from './dto/update-fps-sample.dto';
 import { FpsEstimateDto } from './dto/fps-estimate.dto';
+import { RunCheckDto } from './dto/run-check.dto';
 import { fpsDedupeKey } from './fps-ingest/fps-importer';
 import {
   COLD_RAM_NEED_GB,
@@ -44,6 +47,16 @@ import {
   relativeCoefficientsFromRecommended,
   type EstimateOutput,
 } from './estimation.engine';
+import {
+  compareIndex,
+  compareRam,
+  compareVram,
+  performanceCopy,
+  resolveVerdict,
+  tierPasses,
+  verdictStatusLabelFa,
+} from './run-check';
+import { randomBytes } from 'node:crypto';
 
 const defaultScalingSelect = {
   id: true,
@@ -78,6 +91,17 @@ const fpsSampleSelect = {
 } satisfies Prisma.FpsSampleSelect;
 
 const CACHE_TTL_SECONDS = 60 * 60 * 24;
+
+type TierRequirement = {
+  cpuIndex: number | null;
+  gpuIndex: number | null;
+  cpuName: string | null;
+  gpuName: string | null;
+  rawCpuText: string | null;
+  rawGpuText: string | null;
+  ramGb: number | null;
+  vramGb: number | null;
+};
 
 export interface FpsEstimateResolutionResult extends EstimateOutput {
   resolution: ScreenResolution;
@@ -409,6 +433,241 @@ export class EstimationService {
     return { id };
   }
 
+  async runCheck(dto: RunCheckDto) {
+    const game = await this.resolveGame(dto);
+    const cpu = await this.resolveCpu(dto);
+    const gpu = await this.resolveGpu(dto);
+
+    const [minimum, recommended] = await Promise.all([
+      this.loadTierRequirement(game.id, RequirementTier.MINIMUM),
+      this.loadTierRequirement(game.id, RequirementTier.RECOMMENDED),
+    ]);
+
+    const warnings: string[] = [];
+    if (!minimum) {
+      warnings.push('حداقل سیستم برای این بازی در دیتابیس ثبت نشده است.');
+    }
+    if (!recommended) {
+      warnings.push('سیستم پیشنهادی برای این بازی در دیتابیس ثبت نشده است.');
+    }
+    if (cpu.gamingIndex == null) {
+      warnings.push(`CPU «${cpu.name}» شاخص gamingIndex ندارد.`);
+    }
+    if (gpu.gamingIndex == null) {
+      warnings.push(`GPU «${gpu.name}» شاخص gamingIndex ندارد.`);
+    }
+
+    const buildComponents = (tier: TierRequirement | null) => {
+      const cpuStatus = compareIndex({
+        userIndex: cpu.gamingIndex,
+        requiredIndex: tier?.cpuIndex ?? null,
+      });
+      const gpuStatus = compareIndex({
+        userIndex: gpu.gamingIndex,
+        requiredIndex: tier?.gpuIndex ?? null,
+      });
+      const ramStatus = compareRam({
+        userValue: dto.ramGb,
+        required: tier?.ramGb ?? null,
+      });
+      const vramStatus = compareVram({
+        userValue: gpu.vramGb,
+        required: tier?.vramGb ?? null,
+      });
+      return {
+        cpu: {
+          status: cpuStatus,
+          userIndex: cpu.gamingIndex,
+          requiredIndex: tier?.cpuIndex ?? null,
+          label: tier?.cpuName ?? tier?.rawCpuText ?? null,
+        },
+        gpu: {
+          status: gpuStatus,
+          userIndex: gpu.gamingIndex,
+          requiredIndex: tier?.gpuIndex ?? null,
+          label: tier?.gpuName ?? tier?.rawGpuText ?? null,
+        },
+        ram: {
+          status: ramStatus,
+          userValue: dto.ramGb,
+          required: tier?.ramGb ?? null,
+        },
+        vram: {
+          status: vramStatus,
+          userValue: gpu.vramGb,
+          required: tier?.vramGb ?? null,
+        },
+      };
+    };
+
+    const minComponents = buildComponents(minimum);
+    const recComponents = buildComponents(recommended);
+
+    const minimumPass = tierPasses({
+      cpu: minComponents.cpu.status,
+      gpu: minComponents.gpu.status,
+      ram: minComponents.ram.status,
+    });
+    const recommendedPass = tierPasses({
+      cpu: recComponents.cpu.status,
+      gpu: recComponents.gpu.status,
+      ram: recComponents.ram.status,
+    });
+
+    const verdict = resolveVerdict({ minimumPass, recommendedPass });
+    const runs = verdict !== 'BELOW_MINIMUM';
+
+    let fps1080High: number | null = null;
+    if (cpu.gamingIndex != null && gpu.gamingIndex != null) {
+      try {
+        const estimate = await this.estimateFps({
+          gameId: game.id,
+          cpuId: cpu.id,
+          gpuId: gpu.id,
+          ramGb: dto.ramGb,
+          preset: QualityPreset.HIGH,
+          resolutions: [ScreenResolution.R1080P],
+        });
+        fps1080High = estimate.results[0]?.fps ?? null;
+      } catch (error) {
+        this.logger.warn(
+          `run-check FPS hint failed: ${error instanceof Error ? error.message : error}`,
+        );
+      }
+    }
+
+    const copy = performanceCopy({ verdict, fps1080High });
+    const toTierView = (
+      title: string,
+      tier: TierRequirement | null,
+      components: ReturnType<typeof buildComponents>,
+      passed: boolean,
+    ) => ({
+      title,
+      cpu: components.cpu.label ?? '—',
+      gpu: components.gpu.label ?? '—',
+      ram:
+        tier?.ramGb != null ? `${tier.ramGb} GB` : '—',
+      passed,
+      cpuPassed: components.cpu.status === 'pass' || components.cpu.status === 'unknown',
+      gpuPassed: components.gpu.status === 'pass' || components.gpu.status === 'unknown',
+      ramPassed: components.ram.status === 'pass' || components.ram.status === 'unknown',
+      cpuStatus: components.cpu.status,
+      gpuStatus: components.gpu.status,
+      ramStatus: components.ram.status,
+      vramStatus: components.vram.status,
+    });
+
+    const result = {
+      engineVersion: ESTIMATION_ENGINE_VERSION,
+      verdict,
+      runs,
+      statusLabel: verdictStatusLabelFa(verdict),
+      warnings,
+      game: {
+        id: game.id,
+        slug: game.slug,
+        name: game.name,
+        coverUrl: game.coverUrl,
+      },
+      userSpec: {
+        cpu: cpu.name,
+        gpu: gpu.name,
+        ram: String(dto.ramGb),
+        cpuId: cpu.id,
+        gpuId: gpu.id,
+      },
+      components: {
+        minimum: minComponents,
+        recommended: recComponents,
+      },
+      minimum: toTierView(
+        'حداقل سیستم مورد نیاز',
+        minimum,
+        minComponents,
+        minimumPass,
+      ),
+      recommended: toTierView(
+        'سیستم پیشنهادی',
+        recommended,
+        recComponents,
+        recommendedPass,
+      ),
+      performanceSummary: copy.summary,
+      performanceDetail: copy.detail,
+      expectedPerformance:
+        fps1080High != null
+          ? {
+              resolution: 'R1080P' as const,
+              preset: 'HIGH' as const,
+              fps: fps1080High,
+            }
+          : null,
+    };
+
+    const publicCode = await this.createCheckSnapshot({
+      kind: CheckKind.RUN_CHECK,
+      gameId: game.id,
+      cpuId: cpu.id,
+      gpuId: gpu.id,
+      ramGb: dto.ramGb,
+      inputJson: {
+        gameId: game.id,
+        cpuId: cpu.id,
+        gpuId: gpu.id,
+        ramGb: dto.ramGb,
+      },
+      resultJson: result,
+    });
+
+    return {
+      ...result,
+      shareCode: publicCode,
+      sharePath: `/c/${publicCode}`,
+    };
+  }
+
+  async getCheckSnapshot(publicCode: string) {
+    const row = await this.prisma.checkSnapshot.findUnique({
+      where: { publicCode },
+      select: {
+        id: true,
+        publicCode: true,
+        kind: true,
+        engineVersion: true,
+        resultJson: true,
+        inputJson: true,
+        createdAt: true,
+        viewCount: true,
+        game: { select: { id: true, slug: true, name: true, coverUrl: true } },
+        cpu: { select: { id: true, name: true } },
+        gpu: { select: { id: true, name: true } },
+        ramGb: true,
+      },
+    });
+    if (!row) throw new NotFoundException('Check snapshot not found');
+
+    await this.prisma.checkSnapshot.update({
+      where: { id: row.id },
+      data: { viewCount: { increment: 1 } },
+    });
+
+    return {
+      publicCode: row.publicCode,
+      kind: row.kind,
+      engineVersion: row.engineVersion,
+      createdAt: row.createdAt,
+      viewCount: row.viewCount + 1,
+      game: row.game,
+      cpu: row.cpu,
+      gpu: row.gpu,
+      ramGb: row.ramGb,
+      input: row.inputJson,
+      result: row.resultJson,
+      sharePath: `/c/${row.publicCode}`,
+    };
+  }
+
   async estimateFps(dto: FpsEstimateDto): Promise<FpsEstimateResponse> {
     const game = await this.resolveGame(dto);
     const cpu = await this.resolveCpu(dto);
@@ -593,6 +852,100 @@ export class EstimationService {
 
     await this.writeCache(cacheKey, response);
     return response;
+  }
+
+  private async loadTierRequirement(
+    gameId: string,
+    tier: RequirementTier,
+  ): Promise<TierRequirement | null> {
+    const requirement = await this.prisma.gameRequirement.findUnique({
+      where: { gameId_tier: { gameId, tier } },
+      select: {
+        rawCpuText: true,
+        rawGpuText: true,
+        ramGb: true,
+        vramGb: true,
+        options: {
+          where: {
+            OR: [
+              { kind: 'CPU', cpuId: { not: null } },
+              { kind: 'GPU', gpuId: { not: null } },
+            ],
+          },
+          select: {
+            kind: true,
+            matchedText: true,
+            matchScore: true,
+            cpu: { select: { name: true, gamingIndex: true } },
+            gpu: { select: { name: true, gamingIndex: true } },
+          },
+        },
+      },
+    });
+    if (!requirement) return null;
+
+    const cpuOptions = requirement.options.filter((o) => o.kind === 'CPU');
+    const gpuOptions = requirement.options.filter((o) => o.kind === 'GPU');
+    const bestCpu = [...cpuOptions].sort(
+      (a, b) => (b.cpu?.gamingIndex ?? -1) - (a.cpu?.gamingIndex ?? -1),
+    )[0];
+    const bestGpu = [...gpuOptions].sort(
+      (a, b) => (b.gpu?.gamingIndex ?? -1) - (a.gpu?.gamingIndex ?? -1),
+    )[0];
+
+    return {
+      cpuIndex: maxGamingIndex(
+        cpuOptions.map((o) => o.cpu?.gamingIndex ?? null),
+      ),
+      gpuIndex: maxGamingIndex(
+        gpuOptions.map((o) => o.gpu?.gamingIndex ?? null),
+      ),
+      cpuName: bestCpu?.cpu?.name ?? null,
+      gpuName: bestGpu?.gpu?.name ?? null,
+      rawCpuText: requirement.rawCpuText,
+      rawGpuText: requirement.rawGpuText,
+      ramGb: requirement.ramGb,
+      vramGb: requirement.vramGb,
+    };
+  }
+
+  private async createCheckSnapshot(input: {
+    kind: CheckKind;
+    gameId: string;
+    cpuId: string;
+    gpuId: string;
+    ramGb: number;
+    inputJson: Prisma.InputJsonValue;
+    resultJson: Prisma.InputJsonValue;
+  }): Promise<string> {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const publicCode = randomBytes(5).toString('base64url').slice(0, 8);
+      try {
+        await this.prisma.checkSnapshot.create({
+          data: {
+            publicCode,
+            kind: input.kind,
+            gameId: input.gameId,
+            cpuId: input.cpuId,
+            gpuId: input.gpuId,
+            ramGb: input.ramGb,
+            inputJson: input.inputJson,
+            resultJson: input.resultJson,
+            engineVersion: ESTIMATION_ENGINE_VERSION,
+          },
+        });
+        return publicCode;
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw new BadRequestException('Could not allocate a unique share code');
   }
 
   private async loadRecommendedAnchors(gameId: string): Promise<{

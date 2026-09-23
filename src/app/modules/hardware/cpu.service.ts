@@ -6,6 +6,10 @@ import {
   normalizeHardwareName,
   slugifyHardwareName,
 } from '@/app/common/hardware/normalize-hardware-name';
+import {
+  orderByIds,
+  searchCpuIdsByTrigram,
+} from '@/app/common/search/trigram-search';
 import { ListCpuQueryDto } from './dto/list-cpu-query.dto';
 import { CreateCpuDto } from './dto/create-cpu.dto';
 import { UpdateCpuDto } from './dto/update-cpu.dto';
@@ -80,9 +84,37 @@ export class CpuService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(query: ListCpuQueryDto) {
+    const search = query.q?.trim();
+    const skip = (query.page - 1) * query.limit;
+
+    if (search) {
+      const { ids, total } = await searchCpuIdsByTrigram(this.prisma, search, {
+        limit: query.limit,
+        offset: skip,
+        vendor: query.vendor,
+        formFactor: query.formFactor,
+        quality: query.quality,
+      });
+
+      if (ids.length === 0) {
+        return buildPaginatedResult([], total, query.page, query.limit);
+      }
+
+      const rows = await this.prisma.cpu.findMany({
+        where: { id: { in: ids } },
+        select: cpuListSelect,
+      });
+
+      return buildPaginatedResult(
+        orderByIds(rows, ids),
+        total,
+        query.page,
+        query.limit,
+      );
+    }
+
     const where = this.buildWhere(query);
     const orderBy = this.buildOrderBy(query);
-    const skip = (query.page - 1) * query.limit;
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.cpu.findMany({
