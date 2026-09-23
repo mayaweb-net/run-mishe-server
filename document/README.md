@@ -95,8 +95,8 @@ limitingComponent = fpsCpu < fpsGpu ? "CPU" : "GPU"
 
 ## وضعیت فعلی
 
-**الان کجایی:** فاز ۳ آماده است؛ سرچ فازی `pg_trgm` روی `/hardware/*` و `/games` وصل است؛ پوشش matching ~۹۲٪ CPU / ~۹۵٪ GPU.
-قدم منطقی بعدی: فاز ۵ (`FpsSubmission`) یا ESTIMATED fallback برای قطعات بدون بنچمارک.
+**الان کجایی:** فاز ۵ (گلوگاه) آماده است — `POST /bottleneck`، `/bottleneck`، حالت بدون بازی.
+قدم منطقی بعدی: فاز ۶ (`FpsSubmission` / پیشنهاد ارتقا) یا ESTIMATED fallback.
 
 جزئیات فازها: [`roadmap.md`](./roadmap.md)
 

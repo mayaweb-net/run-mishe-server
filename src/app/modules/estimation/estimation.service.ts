@@ -21,6 +21,7 @@ import { ListFpsSampleQueryDto } from './dto/list-fps-sample-query.dto';
 import { CreateFpsSamplesDto } from './dto/create-fps-samples.dto';
 import { UpdateFpsSampleDto } from './dto/update-fps-sample.dto';
 import { FpsEstimateDto } from './dto/fps-estimate.dto';
+import { BottleneckDto } from './dto/bottleneck.dto';
 import { RunCheckDto } from './dto/run-check.dto';
 import { fpsDedupeKey } from './fps-ingest/fps-importer';
 import {
@@ -146,6 +147,34 @@ export interface FpsEstimateResponse {
     vramGb: number | null;
   };
   results: FpsEstimateResolutionResult[];
+}
+
+export type BottleneckLimitedBy = 'CPU' | 'GPU';
+
+export interface BottleneckResponse {
+  engineVersion: number;
+  method: 'parts-balance';
+  warnings: string[];
+  limitedBy: BottleneckLimitedBy;
+  percent: number;
+  label: string;
+  suggestions: [];
+  cpu: {
+    id: string;
+    slug: string;
+    name: string;
+    gamingIndex: number;
+  };
+  gpu: {
+    id: string;
+    slug: string;
+    name: string;
+    gamingIndex: number;
+    vramGb: number | null;
+  };
+  ramGb: number;
+  shareCode: string;
+  sharePath: string;
 }
 
 @Injectable()
@@ -854,6 +883,117 @@ export class EstimationService {
     return response;
   }
 
+  async bottleneck(dto: BottleneckDto): Promise<BottleneckResponse> {
+    const cpu = await this.resolveCpu(dto);
+    const gpu = await this.resolveGpu(dto);
+
+    if (cpu.gamingIndex == null) {
+      throw new BadRequestException(
+        `CPU "${cpu.name}" has no gamingIndex — run pnpm index:hardware`,
+      );
+    }
+    if (gpu.gamingIndex == null) {
+      throw new BadRequestException(
+        `GPU "${gpu.name}" has no gamingIndex — run pnpm index:hardware`,
+      );
+    }
+
+    // Single reference point (1080p HIGH). No resolution matrix — bottleneck is
+    // a parts-pair balance, not a per-res game estimate.
+    const preset = QualityPreset.HIGH;
+    const resolution = ScreenResolution.R1080P;
+    const demandTier: DemandTier = 'MEDIUM';
+    const profile = coldStartCoefficients(demandTier);
+    const scalingRows = {
+      gameRows: [] as Awaited<
+        ReturnType<EstimationService['loadScalingRows']>
+      >['gameRows'],
+      defaultRows: await this.prisma.defaultScaling.findMany({
+        where: { resolution, preset },
+        select: {
+          resolution: true,
+          preset: true,
+          upscaler: true,
+          rayTracing: true,
+          multiplier: true,
+        },
+      }),
+    };
+    const scaling = this.pickScalingMultiplier(
+      scalingRows,
+      resolution,
+      preset,
+      Upscaler.NONE,
+      false,
+    );
+    const estimate = estimateFps({
+      gpuIndex: gpu.gamingIndex,
+      cpuIndex: cpu.gamingIndex,
+      vramGb: gpu.vramGb ?? 0,
+      ramGb: dto.ramGb,
+      resolution: resolution as EstResolution,
+      preset,
+      upscaler: 'NONE',
+      rayTracing: false,
+      profile,
+      scaling,
+      vramNeedGb: coldVramNeedGb(demandTier, resolution as EstResolution, preset),
+      ramNeedGb: COLD_RAM_NEED_GB[demandTier],
+      confidence: 'low',
+    });
+
+    const warnings: string[] = [
+      'تعادل دو قطعه بر اساس gamingIndex است؛ به بازی و رزولوشن وابسته نیست.',
+    ];
+    if (gpu.vramGb == null) {
+      warnings.push('VRAM کارت مشخص نیست.');
+    }
+
+    const responseBody = {
+      engineVersion: ESTIMATION_ENGINE_VERSION,
+      method: 'parts-balance' as const,
+      warnings,
+      limitedBy: estimate.limitedBy,
+      percent: estimate.bottleneckPercent,
+      label: bottleneckLabelFa(estimate.bottleneckPercent),
+      suggestions: [] as [],
+      cpu: {
+        id: cpu.id,
+        slug: cpu.slug,
+        name: cpu.name,
+        gamingIndex: cpu.gamingIndex,
+      },
+      gpu: {
+        id: gpu.id,
+        slug: gpu.slug,
+        name: gpu.name,
+        gamingIndex: gpu.gamingIndex,
+        vramGb: gpu.vramGb,
+      },
+      ramGb: dto.ramGb,
+    };
+
+    const publicCode = await this.createCheckSnapshot({
+      kind: CheckKind.BOTTLENECK,
+      gameId: null,
+      cpuId: cpu.id,
+      gpuId: gpu.id,
+      ramGb: dto.ramGb,
+      inputJson: {
+        cpuId: cpu.id,
+        gpuId: gpu.id,
+        ramGb: dto.ramGb,
+      },
+      resultJson: responseBody,
+    });
+
+    return {
+      ...responseBody,
+      shareCode: publicCode,
+      sharePath: `/c/${publicCode}`,
+    };
+  }
+
   private async loadTierRequirement(
     gameId: string,
     tier: RequirementTier,
@@ -911,7 +1051,7 @@ export class EstimationService {
 
   private async createCheckSnapshot(input: {
     kind: CheckKind;
-    gameId: string;
+    gameId: string | null;
     cpuId: string;
     gpuId: string;
     ramGb: number;

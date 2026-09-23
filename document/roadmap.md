@@ -23,7 +23,7 @@
 
 **جمع تا اولین فیچر قابل انتشار (فاز ۳):** مسیر دیتا/زیرساخت عملاً بسته است؛ محصول `/review` و `/fps` روی API واقعی‌اند.
 
-**قدم بعدی پیشنهادی:** فاز ۵ (ارسال FPS کاربر / `FpsSubmission`) یا ESTIMATED fallback برای قطعات بدون بنچمارک.
+**قدم بعدی پیشنهادی:** فاز ۶ (`FpsSubmission` / پیشنهاد ارتقا) یا ESTIMATED fallback برای قطعات بدون بنچمارک.
 
 ---
 
@@ -130,9 +130,10 @@
 
 روی همان استیمیتور سوار است؛ `fpsGpu` و `fpsCpu` از قبل در خروجی engine هستند.
 
-- [ ] `POST /bottleneck`
-- [ ] صفحه‌ی جدید در کلاینت با جدول چهار-رزولوشنی
-- [ ] حالت «بدون بازی» با پروفایل میانگین
+- [x] `POST /bottleneck` (یک عدد تعادل CPU↔GPU از gamingIndex)
+- [x] صفحه‌ی `/bottleneck` بدون جدول رزولوشن
+- [x] عدم وابستگی به کالیبراسیون بازی
+- [ ] پیشنهاد ارتقا (`suggestions`) — به فاز ۶ منتقل شد
 
 ---
 
@@ -223,23 +224,22 @@ POST /fps-estimate
 
 ```
 POST /bottleneck
-{ "cpuId": "...", "gpuId": "...", "gameId": "..." | null, "ramGb": 16 }
+{ "cpuId": "...", "gpuId": "...", "ramGb": 16 }
 ```
 
 ```jsonc
 {
-  "overall": { "limitedBy": "CPU", "percent": 27, "label": "گلوگاه قابل‌توجه" },
-  "byResolution": [
-    { "resolution": "R1080P", "limitedBy": "CPU", "percent": 34, "fps": 96 },
-    { "resolution": "R1440P", "limitedBy": "CPU", "percent": 11, "fps": 88 },
-    { "resolution": "R2160P", "limitedBy": "GPU", "percent": 22, "fps": 54 }
-  ],
-  "suggestions": [
-    { "replace": "CPU", "withId": "...", "withName": "Ryzen 7 5800X3D", "newPercent": 6 }
-  ]
+  "method": "parts-balance",
+  "limitedBy": "GPU",
+  "percent": 32,
+  "label": "گلوگاه قابل‌توجه",
+  "cpu": { "id": "...", "name": "AMD Ryzen 5 3600", "gamingIndex": 42.1 },
+  "gpu": { "id": "...", "name": "NVIDIA GeForce RTX 4060", "gamingIndex": 25.0 },
+  "suggestions": []
 }
 ```
 
+یک عدد تعادل دو قطعه؛ بدون بازی و بدون ماتریس رزولوشن.
 ### اسنپ‌شات اشتراک‌گذاری
 
 ```
