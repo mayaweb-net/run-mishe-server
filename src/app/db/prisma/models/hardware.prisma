@@ -75,6 +75,7 @@ model Cpu {
   requirementOptions GameRequirementOption[]
   userBuilds         UserBuild[]
   checkSnapshots     CheckSnapshot[]
+  curatedTop         CuratedTopCpu?
 
   @@index([vendor, formFactor])
   @@index([gamingIndex])
@@ -168,6 +169,7 @@ model Gpu {
   userBuilds         UserBuild[]
   checkSnapshots     CheckSnapshot[]
   integratedInCpus   Cpu[]                   @relation("CpuIntegratedGpu")
+  curatedTop         CuratedTopGpu?
 
   @@index([vendor, formFactor])
   @@index([gamingIndex])

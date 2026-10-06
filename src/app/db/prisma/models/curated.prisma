@@ -1,0 +1,35 @@
+/// Curated "top games" list managed in admin customization.
+model CuratedTopGame {
+  id        String   @id @default(uuid())
+  gameId    String   @unique
+  sortOrder Int
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([sortOrder])
+  @@map("curated_top_games")
+}
+
+/// Curated "top CPUs" list managed in admin customization.
+model CuratedTopCpu {
+  id        String   @id @default(uuid())
+  cpuId     String   @unique
+  sortOrder Int
+  cpu       Cpu      @relation(fields: [cpuId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([sortOrder])
+  @@map("curated_top_cpus")
+}
+
+/// Curated "top GPUs" list managed in admin customization.
+model CuratedTopGpu {
+  id        String   @id @default(uuid())
+  gpuId     String   @unique
+  sortOrder Int
+  gpu       Gpu      @relation(fields: [gpuId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([sortOrder])
+  @@map("curated_top_gpus")
+}

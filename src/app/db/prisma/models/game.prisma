@@ -39,6 +39,7 @@ model Game {
   fpsSamples     FpsSample[]
   fpsSubmissions FpsSubmission[]
   checkSnapshots CheckSnapshot[]
+  curatedTop     CuratedTopGame?
 
   @@index([isPopular, popularity])
   @@index([demandTier])

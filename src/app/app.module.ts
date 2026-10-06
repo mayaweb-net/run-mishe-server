@@ -4,6 +4,7 @@ import { PrismaModule } from '@/app/db/prisma/prisma.module';
 import { configLoaders } from './config';
 import { RedisModule } from './db/redis/redis.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { CuratedModule } from './modules/curated/curated.module';
 import { EstimationModule } from './modules/estimation/estimation.module';
 import { GameModule } from './modules/game/game.module';
 import { HardwareModule } from './modules/hardware/hardware.module';
@@ -22,6 +23,7 @@ import { HardwareModule } from './modules/hardware/hardware.module';
     HardwareModule,
     GameModule,
     EstimationModule,
+    CuratedModule,
     AdminModule,
     // ------------------
   ],
