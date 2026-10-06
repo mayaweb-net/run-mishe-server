@@ -1,7 +1,9 @@
 import { Controller, Get, Query } from '@nestjs/common';
+import { CpuMatrixService } from '../cpu-matrix.service';
 import { CpuService } from '../cpu.service';
 import { GpuMatrixService } from '../gpu-matrix.service';
 import { GpuService } from '../gpu.service';
+import { CpuMatrixQueryDto } from '../dto/cpu-matrix-query.dto';
 import { GpuMatrixQueryDto } from '../dto/gpu-matrix-query.dto';
 import { ListCpuQueryDto } from '../dto/list-cpu-query.dto';
 import { ListGpuQueryDto } from '../dto/list-gpu-query.dto';
@@ -11,8 +13,14 @@ export class HardwareController {
   constructor(
     private readonly cpuService: CpuService,
     private readonly gpuService: GpuService,
+    private readonly cpuMatrixService: CpuMatrixService,
     private readonly gpuMatrixService: GpuMatrixService,
   ) {}
+
+  @Get('cpus/matrix')
+  cpuMatrix(@Query() query: CpuMatrixQueryDto) {
+    return this.cpuMatrixService.getMatrix(query);
+  }
 
   @Get('cpus')
   listCpus(@Query() query: ListCpuQueryDto) {

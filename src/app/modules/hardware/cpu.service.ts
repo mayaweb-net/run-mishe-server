@@ -22,10 +22,14 @@ const cpuListSelect = {
   family: true,
   series: true,
   generation: true,
+  socket: true,
   formFactor: true,
   performanceCores: true,
   efficiencyCores: true,
   threads: true,
+  tdpWatt: true,
+  isX3d: true,
+  isUnlocked: true,
   gamingIndex: true,
   quality: true,
   releaseDate: true,
@@ -86,8 +90,9 @@ export class CpuService {
   async list(query: ListCpuQueryDto) {
     const search = query.q?.trim();
     const skip = (query.page - 1) * query.limit;
+    const hasExtendedFilters = this.hasExtendedFilters(query);
 
-    if (search) {
+    if (search && !hasExtendedFilters) {
       const { ids, total } = await searchCpuIdsByTrigram(this.prisma, search, {
         limit: query.limit,
         offset: skip,
@@ -224,6 +229,15 @@ export class CpuService {
     return { id };
   }
 
+  private hasExtendedFilters(query: ListCpuQueryDto): boolean {
+    return (
+      Boolean(query.socket?.trim()) ||
+      Boolean(query.family?.trim()) ||
+      query.isX3d != null ||
+      query.isUnlocked != null
+    );
+  }
+
   private buildWhere(query: ListCpuQueryDto): Prisma.CpuWhereInput {
     const where: Prisma.CpuWhereInput = {};
 
@@ -237,6 +251,28 @@ export class CpuService {
 
     if (query.quality) {
       where.quality = query.quality;
+    }
+
+    if (query.socket?.trim()) {
+      where.socket = {
+        equals: query.socket.trim(),
+        mode: 'insensitive',
+      };
+    }
+
+    if (query.family?.trim()) {
+      where.family = {
+        startsWith: query.family.trim(),
+        mode: 'insensitive',
+      };
+    }
+
+    if (query.isX3d != null) {
+      where.isX3d = query.isX3d;
+    }
+
+    if (query.isUnlocked != null) {
+      where.isUnlocked = query.isUnlocked;
     }
 
     const search = query.q?.trim();
@@ -265,11 +301,11 @@ export class CpuService {
 
     switch (query.sortBy) {
       case 'gamingIndex':
-        return { gamingIndex: direction };
+        return { gamingIndex: { sort: direction, nulls: 'last' } };
       case 'createdAt':
         return { createdAt: direction };
       case 'releaseDate':
-        return { releaseDate: direction };
+        return { releaseDate: { sort: direction, nulls: 'last' } };
       default:
         return { name: direction };
     }

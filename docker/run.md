@@ -3,7 +3,7 @@
 همه‌ی دستورها از **ریشه‌ی `run-mishe-server`** اجرا می‌شوند.
 
 ```text
-Docker (Postgres + Redis)
+Docker (Postgres + Redis + RustFS/S3)
   → .env + pnpm install
   → prisma generate / migrate / seed
   → crawl PassMark
@@ -34,38 +34,70 @@ REDIS_PORT=16363
 REDIS_PASSWORD=run-mishe
 ```
 
+S3 (RustFS) در `.env`:
+
+```text
+S3_ENDPOINT=http://localhost:19000
+S3_REGION=us-east-1
+S3_ACCESS_KEY=run-mishe
+S3_SECRET_KEY=run-mishe-s3-secret
+S3_BUCKET=run-mishe
+S3_FORCE_PATH_STYLE=true
+```
+
 ---
 
-## ۲) بالا آوردن دیتابیس و Redis
+## ۲) بالا آوردن دیتابیس، Redis و RustFS
 
 ```bash
 docker compose -f docker/pg.docker-compose.yml up -d
 docker compose -f docker/redis.docker-compose.yml up -d
+docker compose -f docker/rustfs.docker-compose.yml up -d
 ```
 
-| سرویس    | پورت میزبان | داخل کانتینر |
-| -------- | ----------- | ------------ |
-| Postgres | `55432`     | `5432`       |
-| Redis    | `16363`     | `6379`       |
+| سرویس              | پورت میزبان | داخل کانتینر |
+| ------------------ | ----------- | ------------ |
+| Postgres           | `55432`     | `5432`       |
+| Redis              | `16363`     | `6379`       |
+| RustFS S3 API      | `19000`     | `9000`       |
+| RustFS Console     | `19001`     | `9001`       |
 
 وضعیت:
 
 ```bash
 docker compose -f docker/pg.docker-compose.yml ps
 docker compose -f docker/redis.docker-compose.yml ps
+docker compose -f docker/rustfs.docker-compose.yml ps
 ```
+
+سلامت S3:
+
+```bash
+curl --fail http://localhost:19000/health
+```
+
+کنسول وب: `http://localhost:19001` (با `S3_ACCESS_KEY` / `S3_SECRET_KEY`).
+
+باکت پیش‌فرض پروژه را بعد از بالا آمدن از کنسول یا با هر کلاینت S3 بساز: `run-mishe`.
 
 خاموش کردن:
 
 ```bash
 docker compose -f docker/pg.docker-compose.yml down
 docker compose -f docker/redis.docker-compose.yml down
+docker compose -f docker/rustfs.docker-compose.yml down
 ```
 
 حذف volume پستگرس (دیتای DB پاک می‌شود):
 
 ```bash
 docker compose -f docker/pg.docker-compose.yml down -v
+```
+
+حذف volume RustFS (آبجکت‌ها پاک می‌شوند):
+
+```bash
+docker compose -f docker/rustfs.docker-compose.yml down -v
 ```
 
 ---
@@ -146,7 +178,7 @@ pnpm start:dev
 
 ## چک‌لیست سریع «دیتا آماده‌ست؟»
 
-- [ ] Postgres و Redis بالا هستند
+- [ ] Postgres و Redis و RustFS بالا هستند
 - [ ] `prisma db seed` بدون خطا تمام شده
 - [ ] `import:benchmarks` برای CPU/GPU `rejected` نزدیک صفر دارد
 - [ ] `index:hardware` تقریباً همه‌ی CPU/GPUها را `updated` کرده
@@ -162,6 +194,7 @@ cp .env.example .env
 
 docker compose -f docker/pg.docker-compose.yml up -d
 docker compose -f docker/redis.docker-compose.yml up -d
+docker compose -f docker/rustfs.docker-compose.yml up -d
 
 pnpm prisma:generate
 pnpm prisma:migrate:deploy
