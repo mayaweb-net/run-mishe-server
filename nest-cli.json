@@ -9,7 +9,7 @@
         "swcrcPath": ".swcrc"
       }
     },
-    "deleteOutDir": true,
+    "deleteOutDir": false,
     "assets": [
       {
         "include": "app/db/generated/**/*",

@@ -1088,6 +1088,237 @@ export class EstimationService {
     throw new BadRequestException('Could not allocate a unique share code');
   }
 
+  /**
+   * Batch FPS grid for a fixed CPU × many GPUs × all published games.
+   * Reuses the same profile / scaling / formula path as `estimateFps`.
+   */
+  async fpsMatrix(input: {
+    cpu: { id: string; gamingIndex: number };
+    gpus: Array<{
+      id: string;
+      gamingIndex: number;
+      vramGb: number | null;
+    }>;
+    resolution: ScreenResolution;
+    preset: QualityPreset;
+    ramGb: number;
+  }): Promise<{
+    columns: Array<{
+      id: string;
+      slug: string;
+      name: string;
+      nameFa: string | null;
+    }>;
+    rows: Array<{ gpuId: string; values: Array<number | null> }>;
+  }> {
+    const games = await this.prisma.game.findMany({
+      where: { isPublished: true },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        nameFa: true,
+        demandTier: true,
+      },
+    });
+
+    if (games.length === 0) {
+      return {
+        columns: [],
+        rows: input.gpus.map((gpu) => ({ gpuId: gpu.id, values: [] })),
+      };
+    }
+
+    const gameIds = games.map((game) => game.id);
+    const upscaler = Upscaler.NONE;
+    const rayTracing = false;
+
+    const [profiles, requirements, gameScalingRows, defaultScalingRows] =
+      await Promise.all([
+        this.prisma.gameProfile.findMany({
+          where: { gameId: { in: gameIds } },
+        }),
+        this.prisma.gameRequirement.findMany({
+          where: {
+            gameId: { in: gameIds },
+            tier: RequirementTier.RECOMMENDED,
+          },
+          select: {
+            gameId: true,
+            options: {
+              where: {
+                OR: [
+                  { kind: 'GPU', gpuId: { not: null } },
+                  { kind: 'CPU', cpuId: { not: null } },
+                ],
+              },
+              select: {
+                kind: true,
+                gpu: { select: { gamingIndex: true } },
+                cpu: { select: { gamingIndex: true } },
+              },
+            },
+          },
+        }),
+        this.prisma.gameScaling.findMany({
+          where: {
+            gameId: { in: gameIds },
+            resolution: input.resolution,
+            preset: input.preset,
+          },
+          select: {
+            gameId: true,
+            resolution: true,
+            preset: true,
+            upscaler: true,
+            rayTracing: true,
+            multiplier: true,
+          },
+        }),
+        this.prisma.defaultScaling.findMany({
+          where: {
+            resolution: input.resolution,
+            preset: input.preset,
+          },
+          select: {
+            resolution: true,
+            preset: true,
+            upscaler: true,
+            rayTracing: true,
+            multiplier: true,
+          },
+        }),
+      ]);
+
+    const profileByGameId = new Map(profiles.map((row) => [row.gameId, row]));
+    const requirementByGameId = new Map(
+      requirements.map((row) => [row.gameId, row]),
+    );
+    const gameScalingByGameId = new Map<string, typeof gameScalingRows>();
+    for (const row of gameScalingRows) {
+      const list = gameScalingByGameId.get(row.gameId) ?? [];
+      list.push(row);
+      gameScalingByGameId.set(row.gameId, list);
+    }
+
+    type GameCtx = {
+      profile: Coefficients;
+      scaling: number;
+      vramNeedGb: number;
+      ramNeedGb: number;
+      confidence: ConfidenceLevel;
+    };
+
+    const contexts: GameCtx[] = games.map((game) => {
+      const profileRow = profileByGameId.get(game.id);
+      const isCalibrated = profileRow?.isCalibrated ?? false;
+      const confidence = confidenceFromCalibration({
+        isCalibrated,
+        rSquared: profileRow?.rSquared,
+        sampleCount: profileRow?.sampleCount ?? 0,
+      });
+
+      let profile: Coefficients;
+      if (isCalibrated && profileRow) {
+        profile = {
+          gpuCoef: profileRow.gpuCoef,
+          gpuExponent: profileRow.gpuExponent,
+          cpuCoef: profileRow.cpuCoef,
+          cpuExponent: profileRow.cpuExponent,
+          blendK: profileRow.blendK,
+        };
+      } else {
+        const requirement = requirementByGameId.get(game.id);
+        const gpuIndexes =
+          requirement?.options
+            .filter((option) => option.kind === 'GPU')
+            .map((option) => option.gpu?.gamingIndex ?? null) ?? [];
+        const cpuIndexes =
+          requirement?.options
+            .filter((option) => option.kind === 'CPU')
+            .map((option) => option.cpu?.gamingIndex ?? null) ?? [];
+        const recGpuIndex = maxGamingIndex(gpuIndexes);
+        let recCpuIndex = maxGamingIndex(cpuIndexes);
+
+        if (recGpuIndex != null) {
+          if (recCpuIndex == null) {
+            recCpuIndex = inferRecCpuIndexFromGpu(recGpuIndex);
+          }
+          profile = relativeCoefficientsFromRecommended({
+            recGpuIndex,
+            recCpuIndex,
+          });
+        } else {
+          profile = coldStartCoefficients(game.demandTier);
+        }
+      }
+
+      const scaling = this.pickScalingMultiplier(
+        {
+          gameRows: (gameScalingByGameId.get(game.id) ?? []).map((row) => ({
+            resolution: row.resolution,
+            preset: row.preset,
+            upscaler: row.upscaler,
+            rayTracing: row.rayTracing,
+            multiplier: row.multiplier,
+          })),
+          defaultRows: defaultScalingRows,
+        },
+        input.resolution,
+        input.preset,
+        upscaler,
+        rayTracing,
+      );
+
+      const ramNeedGb =
+        isCalibrated && profileRow
+          ? profileRow.ramNeedGb
+          : COLD_RAM_NEED_GB[game.demandTier];
+
+      const vramNeedGb = this.resolveVramNeedGb(
+        game.demandTier,
+        input.resolution,
+        input.preset,
+        isCalibrated ? profileRow?.vramNeedGb : null,
+      );
+
+      return { profile, scaling, vramNeedGb, ramNeedGb, confidence };
+    });
+
+    const rows = input.gpus.map((gpu) => {
+      const values = contexts.map((ctx) => {
+        const estimate = estimateFps({
+          gpuIndex: gpu.gamingIndex,
+          cpuIndex: input.cpu.gamingIndex,
+          vramGb: gpu.vramGb ?? 0,
+          ramGb: input.ramGb,
+          resolution: input.resolution as EstResolution,
+          preset: input.preset,
+          upscaler: upscaler as EstUpscaler,
+          rayTracing,
+          profile: ctx.profile,
+          scaling: ctx.scaling,
+          vramNeedGb: ctx.vramNeedGb,
+          ramNeedGb: ctx.ramNeedGb,
+          confidence: ctx.confidence,
+        });
+        return estimate.fps;
+      });
+      return { gpuId: gpu.id, values };
+    });
+
+    return {
+      columns: games.map((game) => ({
+        id: game.id,
+        slug: game.slug,
+        name: game.name,
+        nameFa: game.nameFa,
+      })),
+      rows,
+    };
+  }
+
   private async loadRecommendedAnchors(gameId: string): Promise<{
     recGpuIndex: number | null;
     recCpuIndex: number | null;

@@ -28,6 +28,10 @@ const gpuListSelect = {
   tdpWatt: true,
   gamingIndex: true,
   quality: true,
+  supportsRayTracing: true,
+  dlssVersion: true,
+  fsrVersion: true,
+  supportsFrameGen: true,
   releaseDate: true,
   createdAt: true,
 } satisfies Prisma.GpuSelect;
@@ -99,8 +103,9 @@ export class GpuService {
   async list(query: ListGpuQueryDto) {
     const search = query.q?.trim();
     const skip = (query.page - 1) * query.limit;
+    const hasExtendedFilters = this.hasExtendedFilters(query);
 
-    if (search) {
+    if (search && !hasExtendedFilters) {
       const { ids, total } = await searchGpuIdsByTrigram(this.prisma, search, {
         limit: query.limit,
         offset: skip,
@@ -230,6 +235,19 @@ export class GpuService {
     return { id };
   }
 
+  private hasExtendedFilters(query: ListGpuQueryDto): boolean {
+    return (
+      query.vramMin != null ||
+      query.vramMax != null ||
+      Boolean(query.family?.trim()) ||
+      query.generation != null ||
+      query.supportsRayTracing != null ||
+      query.dlssMin != null ||
+      query.supportsFrameGen != null ||
+      Boolean(query.memoryType?.trim())
+    );
+  }
+
   private buildWhere(query: ListGpuQueryDto): Prisma.GpuWhereInput {
     const where: Prisma.GpuWhereInput = {};
 
@@ -243,6 +261,40 @@ export class GpuService {
 
     if (query.quality) {
       where.quality = query.quality;
+    }
+
+    if (query.vramMin != null || query.vramMax != null) {
+      where.vramGb = {
+        ...(query.vramMin != null ? { gte: query.vramMin } : {}),
+        ...(query.vramMax != null ? { lte: query.vramMax } : {}),
+      };
+    }
+
+    if (query.family?.trim()) {
+      where.family = query.family.trim();
+    }
+
+    if (query.generation != null) {
+      where.generation = query.generation;
+    }
+
+    if (query.supportsRayTracing != null) {
+      where.supportsRayTracing = query.supportsRayTracing;
+    }
+
+    if (query.dlssMin != null) {
+      where.dlssVersion = { gte: query.dlssMin };
+    }
+
+    if (query.supportsFrameGen != null) {
+      where.supportsFrameGen = query.supportsFrameGen;
+    }
+
+    if (query.memoryType?.trim()) {
+      where.memoryType = {
+        equals: query.memoryType.trim(),
+        mode: 'insensitive',
+      };
     }
 
     const search = query.q?.trim();
