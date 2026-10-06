@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
+import { ArticleModule } from '@/app/modules/article/article.module';
 import { BenchmarkModule } from '@/app/modules/benchmark/benchmark.module';
 import { CuratedModule } from '@/app/modules/curated/curated.module';
 import { EstimationModule } from '@/app/modules/estimation/estimation.module';
 import { GameModule } from '@/app/modules/game/game.module';
 import { HardwareModule } from '@/app/modules/hardware/hardware.module';
+import { AdminArticleCategoriesController } from './controllers/admin.article-categories.controller';
+import { AdminArticlesController } from './controllers/admin.articles.controller';
 import { AdminBenchmarkController } from './controllers/admin.benchmark.controller';
 import { AdminCuratedController } from './controllers/admin.curated.controller';
 import { AdminFpsController } from './controllers/admin.fps.controller';
@@ -17,6 +20,7 @@ import { AdminHardwareController } from './controllers/admin.hardware.controller
     BenchmarkModule,
     EstimationModule,
     CuratedModule,
+    ArticleModule,
   ],
   controllers: [
     AdminHardwareController,
@@ -24,6 +28,8 @@ import { AdminHardwareController } from './controllers/admin.hardware.controller
     AdminBenchmarkController,
     AdminFpsController,
     AdminCuratedController,
+    AdminArticlesController,
+    AdminArticleCategoriesController,
   ],
 })
 export class AdminModule {}

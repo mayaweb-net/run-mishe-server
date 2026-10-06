@@ -4,6 +4,7 @@ import databaseConfig from './database.config';
 import jwtConfig from './jwt.config';
 import kavenegarConfig from './kavenegar.config';
 import redisConfig from './redis.config';
+import storageConfig from './storage.config';
 
 export const configLoaders = [
   appConfig,
@@ -12,4 +13,5 @@ export const configLoaders = [
   jwtConfig,
   redisConfig,
   kavenegarConfig,
+  storageConfig,
 ];

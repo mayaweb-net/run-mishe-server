@@ -1,0 +1,52 @@
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+
+  @@map("article_status")
+}
+
+model ArticleCategory {
+  id              String  @id @default(uuid())
+  name            String
+  slug            String  @unique
+  description     String? @db.Text
+  metaTitle       String?
+  metaDescription String? @db.Text
+  noIndex         Boolean @default(false)
+  sortOrder       Int     @default(0)
+
+  articles Article[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+  @@map("article_categories")
+}
+
+model Article {
+  id              String        @id @default(uuid())
+  title           String
+  slug            String        @unique
+  content         String        @db.Text
+  excerpt         String?       @db.Text
+  coverPath       String?       @db.VarChar(500)
+  status          ArticleStatus @default(DRAFT)
+  metaTitle       String?
+  metaDescription String?       @db.Text
+  canonicalUrl    String?
+  noIndex         Boolean       @default(false)
+  publishedAt     DateTime?
+  authorName      String?
+
+  categoryId String?
+  category   ArticleCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([categoryId])
+  @@index([publishedAt])
+  @@map("articles")
+}
