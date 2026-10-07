@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "cpus" ADD COLUMN IF NOT EXISTS "description" TEXT;
+ALTER TABLE "cpus" ADD COLUMN IF NOT EXISTS "content" TEXT;

@@ -14,7 +14,13 @@ function assertUuid(value: string, label: string) {
   }
 }
 
-export type UploadFolder = 'articles' | 'games';
+export type UploadFolder = 'articles' | 'games' | 'cpus';
+
+const FOLDER_LABELS: Record<UploadFolder, string> = {
+  articles: 'شناسه مقاله',
+  games: 'شناسه بازی',
+  cpus: 'شناسه پردازنده',
+};
 
 export function resolveUploadRelativePath(input: {
   folder: string | undefined;
@@ -23,12 +29,12 @@ export function resolveUploadRelativePath(input: {
   originalName: string;
 }): string {
   const folder = (input.folder?.trim() || 'articles') as UploadFolder;
-  if (folder !== 'articles' && folder !== 'games') {
+  if (folder !== 'articles' && folder !== 'games' && folder !== 'cpus') {
     throw new BadRequestException('پوشه آپلود نامعتبر است');
   }
 
   const ownerId = input.ownerId?.trim() ?? '';
-  assertUuid(ownerId, folder === 'games' ? 'شناسه بازی' : 'شناسه مقاله');
+  assertUuid(ownerId, FOLDER_LABELS[folder]);
 
   const filename = `${randomUUID()}-${input.originalName}`;
 
@@ -40,10 +46,17 @@ export function resolveUploadRelativePath(input: {
     return `gallery/games/${ownerId}/${scope}/${filename}`;
   }
 
+  if (folder === 'cpus') {
+    const scope = input.scope?.trim() || 'content';
+    if (scope !== 'cover' && scope !== 'content') {
+      throw new BadRequestException('بخش فایل پردازنده نامعتبر است');
+    }
+    return `gallery/cpus/${ownerId}/${scope}/${filename}`;
+  }
+
   const scope = input.scope?.trim() || 'cover';
   if (scope !== 'cover' && scope !== 'content') {
     throw new BadRequestException('بخش فایل مقاله نامعتبر است');
   }
-  // Articles also live under gallery/ for a unified S3 layout.
   return `gallery/articles/${ownerId}/${scope}/${filename}`;
 }

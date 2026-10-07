@@ -154,6 +154,18 @@ export class UpdateCpuDto {
   instructionSets?: string[];
 
   @IsOptional()
+  @IsString()
+  coverUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  content?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   msrpUsd?: number;

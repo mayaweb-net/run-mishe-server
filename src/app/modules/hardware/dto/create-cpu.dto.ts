@@ -13,10 +13,15 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Min,
 } from 'class-validator';
 
 export class CreateCpuDto {
+  @IsOptional()
+  @IsUUID('4')
+  id?: string;
+
   @IsString()
   name!: string;
 
@@ -148,6 +153,18 @@ export class CreateCpuDto {
   @IsArray()
   @IsString({ each: true })
   instructionSets?: string[];
+
+  @IsOptional()
+  @IsString()
+  coverUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  content?: string;
 
   @IsOptional()
   @Type(() => Number)

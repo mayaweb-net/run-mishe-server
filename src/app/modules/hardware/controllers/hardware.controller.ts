@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { CpuMatrixService } from '../cpu-matrix.service';
 import { CpuService } from '../cpu.service';
 import { GpuMatrixService } from '../gpu-matrix.service';
@@ -25,6 +25,11 @@ export class HardwareController {
   @Get('cpus')
   listCpus(@Query() query: ListCpuQueryDto) {
     return this.cpuService.list(query);
+  }
+
+  @Get('cpus/:slug')
+  getCpuBySlug(@Param('slug') slug: string) {
+    return this.cpuService.findBySlug(slug);
   }
 
   @Get('gpus/matrix')

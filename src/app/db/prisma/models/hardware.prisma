@@ -50,6 +50,14 @@ model Cpu {
   /// e.g. ["AVX2", "AVX-512"]
   instructionSets String[]
 
+  /// Cover image URL or relative S3 path under gallery/cpus/{id}/cover/.
+  coverUrl    String?
+  /// Short plain-text blurb for cards / SEO.
+  description String?
+  /// Full TipTap HTML for the public CPU review page.
+  /// Supports `{{field}}` placeholders (e.g. `{{performanceCores}}`).
+  content     String? @db.Text
+
   // ---- derived, written only by the index job ----
   singleThreadIndex Float?
   multiThreadIndex  Float?

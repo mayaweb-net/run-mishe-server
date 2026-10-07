@@ -68,6 +68,9 @@ export const cpuDetailSelect = {
   pcieVersion: true,
   pcieLanes: true,
   instructionSets: true,
+  coverUrl: true,
+  description: true,
+  content: true,
   singleThreadIndex: true,
   multiThreadIndex: true,
   gamingIndex: true,
@@ -80,8 +83,39 @@ export const cpuDetailSelect = {
   updatedAt: true,
 } satisfies Prisma.CpuSelect;
 
+const cpuPublicDetailSelect = {
+  ...cpuDetailSelect,
+  benchmarkScores: {
+    orderBy: [{ score: 'desc' as const }],
+    select: {
+      id: true,
+      score: true,
+      minScore: true,
+      maxScore: true,
+      sampleCount: true,
+      source: true,
+      sourceUrl: true,
+      capturedAt: true,
+      benchmark: {
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          vendor: true,
+          category: true,
+          unit: true,
+          higherIsBetter: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.CpuSelect;
+
 export type CpuListItem = Prisma.CpuGetPayload<{ select: typeof cpuListSelect }>;
 export type CpuDetail = Prisma.CpuGetPayload<{ select: typeof cpuDetailSelect }>;
+export type CpuPublicDetail = Prisma.CpuGetPayload<{
+  select: typeof cpuPublicDetailSelect;
+}>;
 
 @Injectable()
 export class CpuService {
@@ -148,12 +182,26 @@ export class CpuService {
     return cpu;
   }
 
+  async findBySlug(slug: string): Promise<CpuPublicDetail> {
+    const cpu = await this.prisma.cpu.findUnique({
+      where: { slug },
+      select: cpuPublicDetailSelect,
+    });
+
+    if (!cpu) {
+      throw new NotFoundException(`CPU with slug "${slug}" not found`);
+    }
+
+    return cpu;
+  }
+
   async create(dto: CreateCpuDto): Promise<CpuDetail> {
     const slug = dto.slug?.trim() || slugifyHardwareName(dto.name);
     const normalizedName = normalizeHardwareName(dto.name);
 
     return this.prisma.cpu.create({
       data: {
+        ...(dto.id ? { id: dto.id } : {}),
         name: dto.name,
         slug,
         normalizedName,
@@ -184,6 +232,9 @@ export class CpuService {
         pcieVersion: dto.pcieVersion,
         pcieLanes: dto.pcieLanes,
         instructionSets: dto.instructionSets ?? [],
+        coverUrl: dto.coverUrl,
+        description: dto.description,
+        content: dto.content,
         msrpUsd: dto.msrpUsd,
         quality: dto.quality,
         sourceName: dto.sourceName,
