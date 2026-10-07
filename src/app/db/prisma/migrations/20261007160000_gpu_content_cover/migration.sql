@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "gpus" ADD COLUMN IF NOT EXISTS "coverUrl" TEXT;
+ALTER TABLE "gpus" ADD COLUMN IF NOT EXISTS "description" TEXT;
+ALTER TABLE "gpus" ADD COLUMN IF NOT EXISTS "content" TEXT;

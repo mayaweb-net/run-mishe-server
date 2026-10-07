@@ -154,6 +154,14 @@ model Gpu {
   openglVersion         String?
   maxDisplays           Int?
 
+  /// Cover image URL or relative S3 path under gallery/gpus/{id}/cover/.
+  coverUrl    String?
+  /// Short plain-text blurb for cards / SEO.
+  description String?
+  /// Full TipTap HTML for the public GPU review page.
+  /// Supports `{{field}}` placeholders (e.g. `{{vramGb}}`).
+  content     String? @db.Text
+
   // ---- derived, written only by the index job ----
   /// 0..100, scaled so the fastest known gaming GPU is 100.
   gamingIndex       Float?

@@ -41,4 +41,9 @@ export class HardwareController {
   listGpus(@Query() query: ListGpuQueryDto) {
     return this.gpuService.list(query);
   }
+
+  @Get('gpus/:slug')
+  getGpuBySlug(@Param('slug') slug: string) {
+    return this.gpuService.findBySlug(slug);
+  }
 }

@@ -1,5 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@/app/db/generated/prisma/client';
+import {
+  Prisma,
+  QualityPreset,
+  ScreenResolution,
+} from '@/app/db/generated/prisma/client';
 import { PrismaService } from '@/app/db/prisma/prisma.service';
 import { buildPaginatedResult } from '@/app/common/types/paginated-result';
 import {
@@ -13,6 +17,22 @@ import {
 import { ListGpuQueryDto } from './dto/list-gpu-query.dto';
 import { CreateGpuDto } from './dto/create-gpu.dto';
 import { UpdateGpuDto } from './dto/update-gpu.dto';
+
+const QUALITY_PRESETS = [
+  QualityPreset.LOW,
+  QualityPreset.MEDIUM,
+  QualityPreset.HIGH,
+  QualityPreset.ULTRA,
+] as const;
+
+const RESOLUTION_RANK: Record<ScreenResolution, number> = {
+  [ScreenResolution.R1080P]: 0,
+  [ScreenResolution.R1440P]: 1,
+  [ScreenResolution.R720P]: 2,
+  [ScreenResolution.R2160P]: 3,
+  [ScreenResolution.UW1440P]: 4,
+  [ScreenResolution.UW2160P]: 5,
+};
 
 const gpuListSelect = {
   id: true,
@@ -82,6 +102,9 @@ export const gpuDetailSelect = {
   vulkanVersion: true,
   openglVersion: true,
   maxDisplays: true,
+  coverUrl: true,
+  description: true,
+  content: true,
   gamingIndex: true,
   computeIndex: true,
   indexCalculatedAt: true,
@@ -93,8 +116,60 @@ export const gpuDetailSelect = {
   updatedAt: true,
 } satisfies Prisma.GpuSelect;
 
+const gpuPublicDetailSelect = {
+  ...gpuDetailSelect,
+  benchmarkScores: {
+    orderBy: [{ score: 'desc' as const }],
+    select: {
+      id: true,
+      score: true,
+      minScore: true,
+      maxScore: true,
+      sampleCount: true,
+      source: true,
+      sourceUrl: true,
+      capturedAt: true,
+      benchmark: {
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          vendor: true,
+          category: true,
+          unit: true,
+          higherIsBetter: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.GpuSelect;
+
 export type GpuListItem = Prisma.GpuGetPayload<{ select: typeof gpuListSelect }>;
 export type GpuDetail = Prisma.GpuGetPayload<{ select: typeof gpuDetailSelect }>;
+export type GpuPublicDetailBase = Prisma.GpuGetPayload<{
+  select: typeof gpuPublicDetailSelect;
+}>;
+
+export type GpuGamePerformancePresetFps = Record<
+  (typeof QUALITY_PRESETS)[number],
+  number | null
+>;
+
+export type GpuGamePerformance = {
+  game: {
+    id: string;
+    slug: string;
+    name: string;
+    nameFa: string | null;
+    coverUrl: string | null;
+  };
+  resolution: ScreenResolution | null;
+  presets: GpuGamePerformancePresetFps;
+};
+
+export type GpuPublicDetail = GpuPublicDetailBase & {
+  gamePerformance: GpuGamePerformance[];
+};
 
 @Injectable()
 export class GpuService {
@@ -161,12 +236,28 @@ export class GpuService {
     return gpu;
   }
 
+  async findBySlug(slug: string): Promise<GpuPublicDetail> {
+    const gpu = await this.prisma.gpu.findUnique({
+      where: { slug },
+      select: gpuPublicDetailSelect,
+    });
+
+    if (!gpu) {
+      throw new NotFoundException(`GPU with slug "${slug}" not found`);
+    }
+
+    const gamePerformance = await this.buildGamePerformance(gpu.id);
+
+    return { ...gpu, gamePerformance };
+  }
+
   async create(dto: CreateGpuDto): Promise<GpuDetail> {
     const slug = dto.slug?.trim() || slugifyHardwareName(dto.name);
     const normalizedName = normalizeHardwareName(dto.name);
 
     return this.prisma.gpu.create({
       data: {
+        ...(dto.id ? { id: dto.id } : {}),
         name: dto.name,
         slug,
         normalizedName,
@@ -190,6 +281,9 @@ export class GpuService {
         formFactor: dto.formFactor,
         isWorkstation: dto.isWorkstation,
         supportsRayTracing: dto.supportsRayTracing,
+        coverUrl: dto.coverUrl,
+        description: dto.description,
+        content: dto.content,
         msrpUsd: dto.msrpUsd,
         quality: dto.quality,
         sourceName: dto.sourceName,
@@ -233,6 +327,91 @@ export class GpuService {
     await this.findById(id);
     await this.prisma.gpu.delete({ where: { id } });
     return { id };
+  }
+
+  private async buildGamePerformance(
+    gpuId: string,
+  ): Promise<GpuGamePerformance[]> {
+    const curated = await this.prisma.curatedTopGame.findMany({
+      orderBy: { sortOrder: 'asc' },
+      select: {
+        game: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+            nameFa: true,
+            coverUrl: true,
+          },
+        },
+      },
+    });
+
+    if (curated.length === 0) {
+      return [];
+    }
+
+    const gameIds = curated.map((row) => row.game.id);
+    const samples = await this.prisma.fpsSample.findMany({
+      where: {
+        gpuId,
+        gameId: { in: gameIds },
+      },
+      select: {
+        gameId: true,
+        preset: true,
+        resolution: true,
+        avgFps: true,
+      },
+    });
+
+    type BestSample = {
+      avgFps: number;
+      resolution: ScreenResolution;
+      rank: number;
+    };
+
+    const best = new Map<string, BestSample>();
+    for (const sample of samples) {
+      const key = `${sample.gameId}:${sample.preset}`;
+      const rank = RESOLUTION_RANK[sample.resolution] ?? 99;
+      const prev = best.get(key);
+      if (
+        !prev ||
+        rank < prev.rank ||
+        (rank === prev.rank && sample.avgFps > prev.avgFps)
+      ) {
+        best.set(key, {
+          avgFps: sample.avgFps,
+          resolution: sample.resolution,
+          rank,
+        });
+      }
+    }
+
+    return curated.map(({ game }) => {
+      const presets = {
+        [QualityPreset.LOW]: null,
+        [QualityPreset.MEDIUM]: null,
+        [QualityPreset.HIGH]: null,
+        [QualityPreset.ULTRA]: null,
+      } as GpuGamePerformancePresetFps;
+
+      let resolution: ScreenResolution | null = null;
+      let bestRank = Number.POSITIVE_INFINITY;
+
+      for (const preset of QUALITY_PRESETS) {
+        const hit = best.get(`${game.id}:${preset}`);
+        if (!hit) continue;
+        presets[preset] = Math.round(hit.avgFps);
+        if (hit.rank < bestRank) {
+          bestRank = hit.rank;
+          resolution = hit.resolution;
+        }
+      }
+
+      return { game, resolution, presets };
+    });
   }
 
   private hasExtendedFilters(query: ListGpuQueryDto): boolean {

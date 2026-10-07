@@ -14,12 +14,13 @@ function assertUuid(value: string, label: string) {
   }
 }
 
-export type UploadFolder = 'articles' | 'games' | 'cpus';
+export type UploadFolder = 'articles' | 'games' | 'cpus' | 'gpus';
 
 const FOLDER_LABELS: Record<UploadFolder, string> = {
   articles: 'شناسه مقاله',
   games: 'شناسه بازی',
   cpus: 'شناسه پردازنده',
+  gpus: 'شناسه کارت گرافیک',
 };
 
 export function resolveUploadRelativePath(input: {
@@ -29,7 +30,12 @@ export function resolveUploadRelativePath(input: {
   originalName: string;
 }): string {
   const folder = (input.folder?.trim() || 'articles') as UploadFolder;
-  if (folder !== 'articles' && folder !== 'games' && folder !== 'cpus') {
+  if (
+    folder !== 'articles' &&
+    folder !== 'games' &&
+    folder !== 'cpus' &&
+    folder !== 'gpus'
+  ) {
     throw new BadRequestException('پوشه آپلود نامعتبر است');
   }
 
@@ -46,12 +52,16 @@ export function resolveUploadRelativePath(input: {
     return `gallery/games/${ownerId}/${scope}/${filename}`;
   }
 
-  if (folder === 'cpus') {
+  if (folder === 'cpus' || folder === 'gpus') {
     const scope = input.scope?.trim() || 'content';
     if (scope !== 'cover' && scope !== 'content') {
-      throw new BadRequestException('بخش فایل پردازنده نامعتبر است');
+      throw new BadRequestException(
+        folder === 'cpus'
+          ? 'بخش فایل پردازنده نامعتبر است'
+          : 'بخش فایل کارت گرافیک نامعتبر است',
+      );
     }
-    return `gallery/cpus/${ownerId}/${scope}/${filename}`;
+    return `gallery/${folder}/${ownerId}/${scope}/${filename}`;
   }
 
   const scope = input.scope?.trim() || 'cover';

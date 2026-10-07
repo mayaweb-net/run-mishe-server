@@ -12,9 +12,14 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
 } from 'class-validator';
 
 export class CreateGpuDto {
+  @IsOptional()
+  @IsUUID('4')
+  id?: string;
+
   @IsString()
   name!: string;
 
@@ -109,6 +114,18 @@ export class CreateGpuDto {
   @IsOptional()
   @IsBoolean()
   supportsRayTracing?: boolean;
+
+  @IsOptional()
+  @IsString()
+  coverUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  content?: string;
 
   @IsOptional()
   @Type(() => Number)
