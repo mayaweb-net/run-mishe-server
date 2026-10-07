@@ -98,6 +98,8 @@ export const gameDetailSelect = {
   genres: true,
   coverUrl: true,
   description: true,
+  content: true,
+  galleryPaths: true,
   steamAppId: true,
   igdbId: true,
   demandTier: true,

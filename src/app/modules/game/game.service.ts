@@ -125,6 +125,19 @@ export class GameService {
     return game;
   }
 
+  async findPublishedBySlug(slug: string): Promise<GameDetail> {
+    const game = await this.prisma.game.findFirst({
+      where: { slug, isPublished: true },
+      select: gameDetailSelect,
+    });
+
+    if (!game) {
+      throw new NotFoundException(`Game with slug "${slug}" not found`);
+    }
+
+    return game;
+  }
+
   async create(dto: CreateGameDto): Promise<GameDetail> {
     const { requirements, ...gameDto } = dto;
     const slug = gameDto.slug?.trim() || slugifyHardwareName(gameDto.name);
@@ -133,6 +146,7 @@ export class GameService {
 
     const game = await this.prisma.game.create({
       data: {
+        ...(gameDto.id ? { id: gameDto.id } : {}),
         name: gameDto.name,
         slug,
         nameFa: gameDto.nameFa,
@@ -143,6 +157,8 @@ export class GameService {
         genres: gameDto.genres ?? [],
         coverUrl: gameDto.coverUrl,
         description: gameDto.description,
+        content: gameDto.content,
+        galleryPaths: gameDto.galleryPaths ?? [],
         steamAppId: gameDto.steamAppId,
         igdbId: gameDto.igdbId,
         demandTier: gameDto.demandTier,

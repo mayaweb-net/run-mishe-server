@@ -11,7 +11,12 @@ model Game {
   publisher   String?
   genres      String[]
   coverUrl    String?
+  /// Short plain-text blurb for cards / SEO fallback.
   description String?
+  /// Full TipTap HTML body for the public game review page.
+  content     String?  @db.Text
+  /// Relative S3 object paths under gallery/games/{id}/gallery/.
+  galleryPaths String[] @default([])
 
   steamAppId Int? @unique
   igdbId     Int? @unique

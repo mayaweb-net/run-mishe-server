@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "games" ADD COLUMN IF NOT EXISTS "content" TEXT;
+ALTER TABLE "games" ADD COLUMN IF NOT EXISTS "galleryPaths" TEXT[] DEFAULT ARRAY[]::TEXT[];

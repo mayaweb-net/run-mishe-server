@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { GameService } from '../game.service';
 import { ListGameQueryDto } from '../dto/list-game-query.dto';
 
@@ -12,5 +12,10 @@ export class GameController {
       ...query,
       isPublished: true,
     });
+  }
+
+  @Get(':slug')
+  getBySlug(@Param('slug') slug: string) {
+    return this.gameService.findPublishedBySlug(slug);
   }
 }

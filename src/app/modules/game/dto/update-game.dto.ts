@@ -55,6 +55,15 @@ export class UpdateGameDto {
   description?: string;
 
   @IsOptional()
+  @IsString()
+  content?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  galleryPaths?: string[];
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   steamAppId?: number;

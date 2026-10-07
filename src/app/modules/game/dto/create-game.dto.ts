@@ -8,11 +8,16 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   ValidateNested,
 } from 'class-validator';
 import { GameRequirementInputDto } from './game-requirement.dto';
 
 export class CreateGameDto {
+  @IsOptional()
+  @IsUUID('4')
+  id?: string;
+
   @IsString()
   name!: string;
 
@@ -52,6 +57,15 @@ export class CreateGameDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsString()
+  content?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  galleryPaths?: string[];
 
   @IsOptional()
   @Type(() => Number)

@@ -14,25 +14,36 @@ function assertUuid(value: string, label: string) {
   }
 }
 
+export type UploadFolder = 'articles' | 'games';
+
 export function resolveUploadRelativePath(input: {
   folder: string | undefined;
   ownerId: string | undefined;
   scope: string | undefined;
   originalName: string;
 }): string {
-  const folder = input.folder?.trim() || 'articles';
-  if (folder !== 'articles') {
+  const folder = (input.folder?.trim() || 'articles') as UploadFolder;
+  if (folder !== 'articles' && folder !== 'games') {
     throw new BadRequestException('پوشه آپلود نامعتبر است');
   }
 
   const ownerId = input.ownerId?.trim() ?? '';
-  assertUuid(ownerId, 'شناسه مقاله');
+  assertUuid(ownerId, folder === 'games' ? 'شناسه بازی' : 'شناسه مقاله');
+
+  const filename = `${randomUUID()}-${input.originalName}`;
+
+  if (folder === 'games') {
+    const scope = input.scope?.trim() || 'gallery';
+    if (scope !== 'cover' && scope !== 'gallery' && scope !== 'content') {
+      throw new BadRequestException('بخش فایل بازی نامعتبر است');
+    }
+    return `gallery/games/${ownerId}/${scope}/${filename}`;
+  }
 
   const scope = input.scope?.trim() || 'cover';
   if (scope !== 'cover' && scope !== 'content') {
     throw new BadRequestException('بخش فایل مقاله نامعتبر است');
   }
-
-  const filename = `${randomUUID()}-${input.originalName}`;
-  return `articles/${ownerId}/${scope}/${filename}`;
+  // Articles also live under gallery/ for a unified S3 layout.
+  return `gallery/articles/${ownerId}/${scope}/${filename}`;
 }
